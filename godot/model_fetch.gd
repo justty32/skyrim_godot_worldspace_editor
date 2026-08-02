@@ -12,7 +12,7 @@ const CACHE_REL := "res://modelcache"
 var _cache: Dictionary = {}   # ref -> Node3D template (duplicated per placement); null = unresolvable
 var _data_dir: String = ""
 var _cli_project: String = ""
-var _mc_dir: String = ""      # sub_projs/model-converter
+var _mc_dir: String = ""      # the sibling model-converter repo
 var _mc_python: String = ""   # its .venv python
 
 const _DATA_CANDIDATES := [
@@ -23,10 +23,12 @@ const _DATA_CANDIDATES := [
 
 func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(CACHE_REL))
+	# Sibling-repo layout: res:// = <projects>/godot-worldspace-editor/godot, with ModForge and
+	# model-converter cloned alongside under <projects>/. Override via res://texconfig.json.
 	var proj := ProjectSettings.globalize_path("res://").rstrip("/")
-	var repo := proj.get_base_dir().get_base_dir().get_base_dir()
-	_cli_project = repo.path_join("src/ModForge.Cli")
-	_mc_dir = repo.path_join("sub_projs/model-converter")
+	var siblings := proj.get_base_dir().get_base_dir()
+	_cli_project = siblings.path_join("ModForge/src/ModForge.Cli")
+	_mc_dir = siblings.path_join("model-converter")
 	_mc_python = _mc_dir.path_join(".venv/bin/python")
 	for d in _DATA_CANDIDATES:
 		if DirAccess.dir_exists_absolute(d):
@@ -37,7 +39,8 @@ func _ready() -> void:
 		if cfg is Dictionary:
 			_data_dir = cfg.get("data_dir", _data_dir)
 			_cli_project = cfg.get("cli_project", _cli_project)
-			_mc_python = cfg.get("mc_python", _mc_python)
+			_mc_dir = cfg.get("mc_dir", _mc_dir)
+			_mc_python = cfg.get("mc_python", _mc_dir.path_join(".venv/bin/python"))
 
 
 func available() -> bool:

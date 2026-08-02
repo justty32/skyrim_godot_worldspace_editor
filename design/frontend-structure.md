@@ -1,6 +1,6 @@
 # 前端結構（`godot/`）
 
-← [design index](README.md)｜sub_proj：[README](../README.md)
+← [design index](README.md)｜repo：[README](../README.md)
 
 各 `.gd` 按職責分層拆檔（多數 ~100 行；coordinator `main.gd` 與資料節點 `terrain.gd` 略多）：
 
@@ -31,7 +31,26 @@
 | `splat_render.gd` | `SplatRender`（static，吃 `SplatTool`）：層資料 → 地形視覺橋——WYSIWYG 真實貼圖混合（`TerrainMaterial`）或頂點色 tint fallback |
 | `splat_ui.gd` | 可收合「TEXTURE」大項（Splat Mode 切換、base 貼圖欄、層選擇+新增、LTEX ref〔Enter 抓圖〕、Paint/Erase、radius〔改 → 更新游標〕/strength、清層、Load real textures、splatmap PNG I/O）|
 | `splatmap_io.gd` | splatmap 8-bit 灰階 PNG 匯出/匯入（Y-flip 頂=北，同 Png16/Heightmap 約定）+ 印出可貼進 spec 的 `textureLayers` 片段 |
-| `tex_fetch.gd` | `TexFetch`：LTEX ref → 真實貼圖。OS.execute 呼叫 ModForge CLI `texexport`（LTEX→diffuse .dds 從遊戲 BSA→PNG），快取 res://texcache/；CLI 路徑由 repo 結構推導、Data dir 自動偵測（可 texconfig.json 覆寫）。主力機限定，抽不到→退回 tint |
+| `tex_fetch.gd` | `TexFetch`：LTEX ref → 真實貼圖。OS.execute 呼叫 ModForge CLI `texexport`（LTEX→diffuse .dds 從遊戲 BSA→PNG），快取 res://texcache/；CLI 路徑由**同層 repo 佈局**推導、Data dir 自動偵測（可 texconfig.json 覆寫，見下）。主力機限定，抽不到→退回 tint |
 | `terrain_material.gd` | `TerrainMaterial`：地形 WYSIWYG ShaderMaterial — tiled base 貼圖 + 至多 4 層 alpha 混合（alpha 格→R-float 貼圖，UV 取樣）；無真實貼圖時 fallback 頂點高度漸層色 |
+
+## 外部工具路徑（`texconfig.json`）
+
+`tex_fetch.gd` / `model_fetch.gd` 要 shell out 到**本 repo 之外**的兩個工具。預設值由**同層 repo 佈局**推導——`res://` 是 `<projects>/godot-worldspace-editor/godot`，於是 ModForge＝`<projects>/ModForge`、model-converter＝`<projects>/model-converter`。
+
+三個 repo 不同層擺放時，在 `godot/texconfig.json`（gitignore，本機檔）覆寫：
+
+```json
+{
+  "data_dir":    "/path/to/Skyrim Special Edition/Data",
+  "cli_project": "/path/to/ModForge/src/ModForge.Cli",
+  "mc_dir":      "/path/to/model-converter",
+  "mc_python":   "/path/to/model-converter/.venv/bin/python"
+}
+```
+
+省略 `mc_python` 時，取 `<mc_dir>/.venv/bin/python`。全部可省，省的走推導值。
+
+---
 
 **顯示縮放**：`vis_height_scale`（Y）與 `vis_surface_scale`（X/Z）只影響顯示，資料恆為 game units；`Y=(h-min)·MPU·scale` 讓地板固定 Y=0。**高度著色**：以中間高度為基準，下沉→淺藍→深藍（水），上升→草綠→岩石→雪。**游標黃圈**（`_update_cursor`）半徑跟隨**當前模式**：Splat Mode 取 `SplatTool.radius`，否則取 `TerrainGrid.brush_radius`。**加 cell**：`TerrainGrid.resize_cells` + `SplatTool.resize_grid`（main `_add_cells` 串接）保 SW 原點、邊緣延伸，placements 座標不動。

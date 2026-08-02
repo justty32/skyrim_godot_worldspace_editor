@@ -1,6 +1,6 @@
 # 決策與查證
 
-← [design index](README.md)｜sub_proj：[README](../README.md)
+← [design index](README.md)｜repo：[README](../README.md)
 
 ## 決策（已鎖定）
 
@@ -28,5 +28,5 @@
 
 ## 已查證
 
-- ✅ **VHGT 編碼**：signed int8 delta、row-wise 累積、每 delta = 8 game units（Mutagen 0.53.1 + UESP + xEdit，2026-06-16）——詳見 [worldspace-editor-design.md](../../../workflows/specs/worldspace-editor-design.md)
-- ✅ **NIF → glTF**：fo76utils / NifSkope（Linux+Windows 雙平台）；`nif2gltf` Rust CLI 不存在（Gemini 捏造）——見 [`gemini-research/worldspace-editor/nif-gltf-conversion.md`](../../gemini-research/worldspace-editor/nif-gltf-conversion.md)
+- ✅ **VHGT 編碼**：signed int8 delta、row-wise 累積、每 delta = 8 game units（Mutagen 0.53.1 + UESP + xEdit，2026-06-16）——詳見 [worldspace-editor-design.md](../../ModForge/workflows/specs/worldspace-editor-design.md)
+- ✅ **NIF → glTF**：fo76utils / NifSkope（Linux+Windows 雙平台）；`nif2gltf` Rust CLI 不存在（Gemini 捏造）——見 [`gemini-research/worldspace-editor/nif-gltf-conversion.md`](../../ModForge/sub_projs/gemini-research/worldspace-editor/nif-gltf-conversion.md)

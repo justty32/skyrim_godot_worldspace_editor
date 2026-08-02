@@ -1,6 +1,6 @@
 # 設計文檔索引
 
-← sub_proj：[README](../README.md)
+← repo：[README](../README.md)
 
 本夾放 godot-worldspace-editor 的設計/決策 markdown（純文檔，不含程式碼；`godot/` 前端程式碼在[上一層](../godot/)）。
 

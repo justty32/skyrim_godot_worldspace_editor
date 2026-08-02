@@ -1,6 +1,6 @@
 # 分塊編輯 → 拼大圖（stitching）
 
-← [design index](README.md)｜sub_proj：[README](../README.md)｜相關：[座標系](coord-system.md)　[placements 格式](placements-format.md)　[決策](decisions.md)
+← [design index](README.md)｜repo：[README](../README.md)｜相關：[座標系](coord-system.md)　[placements 格式](placements-format.md)　[決策](decisions.md)
 
 大世界的作法不是「畫一張巨圖」，而是**一次編十幾格 cell 的 chunk，最後拼成一張大 PNG 再交給 ModForge 當「一個 worldspace」生成**。本檔記這條工作流與其鎖定決策。
 

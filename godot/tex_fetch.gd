@@ -21,10 +21,11 @@ const _DATA_CANDIDATES := [
 
 func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(CACHE_REL))
-	# Derive the CLI project from the repo layout: res:// = <repo>/sub_projs/godot-worldspace-editor/godot
+	# Derive the CLI project from the sibling-repo layout: res:// = <projects>/godot-worldspace-editor/godot,
+	# with ModForge cloned alongside as <projects>/ModForge. Override via res://texconfig.json.
 	var proj := ProjectSettings.globalize_path("res://").rstrip("/")
-	var repo := proj.get_base_dir().get_base_dir().get_base_dir()  # …/godot → …/godot-worldspace-editor → …/sub_projs → <repo>
-	_cli_project = repo.path_join("src/ModForge.Cli")
+	var siblings := proj.get_base_dir().get_base_dir()  # …/godot → …/godot-worldspace-editor → <projects>
+	_cli_project = siblings.path_join("ModForge/src/ModForge.Cli")
 	for d in _DATA_CANDIDATES:
 		if DirAccess.dir_exists_absolute(d):
 			_data_dir = d

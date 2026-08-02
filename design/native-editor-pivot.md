@@ -1,6 +1,6 @@
 # 決策：轉向 Godot 原生編輯器（棄自製 app 殼）
 
-← [design index](README.md)｜sub_proj：[README](../README.md)｜[decisions](decisions.md)｜[frontend-structure](frontend-structure.md)
+← [design index](README.md)｜repo：[README](../README.md)｜[decisions](decisions.md)｜[frontend-structure](frontend-structure.md)
 
 > 狀態：**方向已拍板（2026-06-24）、未實作**。本文記錄「為什麼轉」與「轉成什麼」,實際遷移待出 plan。
 
@@ -58,7 +58,7 @@ var uniform_scale: float       # REFR scale
 
 ## 加碼:跟既有設計天作之合
 
-- **錨點命名免費**:原生**場景樹**幫節點命名（`BrelinBedRef`、`RiverwatchForgeRef`）——那個節點名**就是** [settlements macro](../../../workflows/specs/archive/2026-06-24-settlement-population-design.md) 錨點要吃的 editorId。場景樹 = 免費的錨點命名 UI。
+- **錨點命名免費**:原生**場景樹**幫節點命名（`BrelinBedRef`、`RiverwatchForgeRef`）——那個節點名**就是** [settlements macro](../../ModForge/workflows/specs/archive/2026-06-24-settlement-population-design.md) 錨點要吃的 editorId。場景樹 = 免費的錨點命名 UI。
 - **程序化擺放更順**:[decisions「程序化擺放」](decisions.md) 那條(GDScript 生 placement)在原生下變成「`@tool` 腳本往場景樹塞 `PlacedObject` 節點」,跟手動拖的結果同構、同一支 export 吐出。
 
 ## 性質轉變（這才是重點）

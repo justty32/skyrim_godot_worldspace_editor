@@ -1,20 +1,22 @@
 # Godot Worldspace Editor
 
-← [idea #19](../../workflows/idea/ideas.md)｜設計文檔：[design/](design/README.md)（座標系／placements 格式／分塊拼大圖／決策與查證／前端結構）｜前端程式碼：[godot/](godot/)
+← [idea #19](../ModForge/workflows/idea/ideas.md)｜設計文檔：[design/](design/README.md)（座標系／placements 格式／分塊拼大圖／決策與查證／前端結構）｜前端程式碼：[godot/](godot/)
 
 > **⚠️ 架構轉向（2026-06-24,未實作）**:擬棄「自製 app 殼」改吃 **Godot 原生編輯器**（.tscn 模板 + `@tool` 匯出腳本）。下述 app 形式的 UI/相機/輸入描述屆時會大改;地形格式/座標/匯出/對接 ModForge 不變。詳 [native-editor-pivot.md](design/native-editor-pivot.md)。
 
 用 **Godot 4**（**自製 terrain**，不靠 HTerrain plugin）離線做地形編輯 → 匯出 → ModForge 生 LAND/REFR → 進遊戲微調。定位是 **Creation Kit 地形/場景編輯的替代前端**（CK 在 Wine/Proton 不穩、難腳本化）。
 
-前期作為 sub_proj（輸出 JSON spec 對接 ModForge）→ 體量大了再移成獨立 repo，對接方式不變。
+**獨立 repo**（2026-08-02 自 ModForge `sub_projs/godot-worldspace-editor` 抽出，未帶舊 commit 歷史）。與 ModForge 的關係不變：**靠協議對接、不整合**——本 repo 只負責輸出 heightmap PNG／splatmap PNG／`placements.json`，生成端全在 ModForge。
+
+> **佈局前提**：本文中 `../ModForge/…`、`../model-converter/…` 這類連結，前提是三個 repo **同層 clone 在同一個父目錄下**（本機為 `~/repo/moddings/skyrim/projects/`）。執行期的 CLI／venv 路徑也照這個假設自動推導，可用 `godot/texconfig.json` 覆寫（見 [design/frontend-structure.md](design/frontend-structure.md)）。
 
 ---
 
 ## 三階段 pipeline
 
-1. **Godot 粗畫**（本 sub_proj）：刷高度 + 刷紋理 + 散佈物件 → 匯出 PNG heightmap + splatmap PNG + `placements.json`
+1. **Godot 粗畫**（本 repo）：刷高度 + 刷紋理 + 散佈物件 → 匯出 PNG heightmap + splatmap PNG + `placements.json`
 2. **ModForge 生成**：讀 heightmap → 切 cell → LAND（VHGT/VNML）；讀 splatmap → BTXT/VTXT 紋理層；讀 placements → REFR → ESP + BSA
-3. **遊戲內微調**（獨立 C++/SKSE repo）：SkyrimIngameEditor 細調，不在 ModForge 範圍
+3. **遊戲內微調**：[scene-capture-bridge](../scene-capture-bridge/README.md)（同層獨立 repo，SKSE C++ DLL）在遊戲內細調並匯出 `scene.json` 回餵 ModForge
 
 ---
 
@@ -54,7 +56,7 @@ Godot（自製 terrain）               ModForge
 
 ## ModForge 後端對接（全部已實作）
 
-對接細節真相在 [SPEC-worldspaces](../../docs/spec/SPEC-worldspaces.md) + [CODE_MAP.world](../../workflows/common/code-map/CODE_MAP.world.md)；下表只留「哪個前端輸出 → 哪個後端入口」的對照。
+對接細節真相在 [SPEC-worldspaces](../ModForge/docs/spec/SPEC-worldspaces.md) + [CODE_MAP.world](../ModForge/workflows/common/code-map/CODE_MAP.world.md)；下表只留「哪個前端輸出 → 哪個後端入口」的對照。
 
 | 前端輸出 | 後端入口 | 狀態 |
 |---|---|---|
@@ -79,13 +81,13 @@ VHGT 編碼（signed int8 delta、每 delta=8 units）、NIF→glTF 工具選型
 
 ## Open
 
-- **小尾巴（不擋使用）**：物件 glTF 只取 diffuse 貼圖（無 normal/spec）；LE-format 真檔 nif 未驗（vanilla 多 SSE）；VTXT position row/col 序待最終目視（見 [WAIT_USER](../../wait_todo/worldspace-editor.md)）。
+- **小尾巴（不擋使用）**：物件 glTF 只取 diffuse 貼圖（無 normal/spec）；LE-format 真檔 nif 未驗（vanilla 多 SSE）；VTXT position row/col 序待最終目視（見 [WAIT_USER](../ModForge/wait_todo/worldspace-editor.md)）。
 
 ~~box proxy → 真實 glTF + 貼圖~~ ✅ **GUI 確認 2026-06-18**：placement 顯示真實 vanilla 模型 + 真實貼圖（非方塊/灰模）。按 placement UI「Load real models」→ CLI `nifexport` 抽 model NIF → `nif2gltf`（解 shape→shader→textureset diffuse，[model-converter](../model-converter/README.md) 已對真實 SSE nif 修復）→ CLI `texpath` 抽貼圖 → `model_fetch.gd` GLTFDocument 載入 + `placement.set_model` 換 box。同款 BSA-抽取 pipeline as `texexport`。
 
 ~~地形紋理 WYSIWYG（Godot 直接顯示真實草/泥土貼圖）~~ ✅ **in-game 確認 2026-06-18**：splat 筆刷下顯示真實 vanilla ground 貼圖（非平色 tint），base + 至多 4 層 per-vertex alpha 混合。CLI `texexport`（LTEX→diffuse .dds 從遊戲 BSA→PNG）+ `tex_fetch.gd`（OS.execute 呼叫、快取 res://texcache/）+ `terrain_material.gd`（ShaderMaterial，無貼圖 fallback 頂點色）。預覽 alpha 格＝匯出 splatmap 同份資料，所見＝VTXT 烘出。
 
-> 主力機驗收項（Godot GUI 實跑、xEdit byte-verify）列在 [WAIT_USER](../../WAIT_USER.md)，不擋離線開發。
+> 主力機驗收項（Godot GUI 實跑、xEdit byte-verify）列在 [WAIT_USER](../ModForge/WAIT_USER.md)，不擋離線開發。
 
 ~~紋理 B 路線（單層 BTXT + 多層 VTXT splatmap + 前端 splat 筆刷）~~ ✅ 2026-06-17（離線實作，**待主力機 Godot GUI + xEdit byte-verify**）：① spec `worldspace.baseTexture` → 每格四象限 BTXT base 層（測 `WorldspaceBaseTextureTests`）；② spec `worldspace.textureLayers`（LTEX + 灰階 splatmap PNG）→ 每格四象限稀疏 ATXT+VTXT alpha 層（`Splatmap.cs`/`Vtxt.cs`，測 `WorldspaceSplatmapTests`）；③ Godot 前端 Splat Mode 多層 alpha 筆 + active 層即時上色 + 8-bit 灰階 splatmap PNG 匯出（含可貼 spec 片段）：`splat_tool.gd`/`splat_ui.gd`/`splatmap_io.gd` + `terrain`/`terrain_mesh` overlay + `main.gd` 路由（與 Place Mode 互斥）。PNG Y-flip/網格約定前後端一致。
 
@@ -97,4 +99,4 @@ VHGT 編碼（signed int8 delta、每 delta=8 units）、NIF→glTF 工具選型
 ~~Godot 專案開啟測試~~ ✅ 2026-06-16（使用者主力機驗證：terrain/筆刷/PNG 匯出可用）
 ~~VNML 重算（後端）~~ ✅ 2026-06-16（`Vnml.cs` + `SampleCellExtended`，35×35 中心差分）
 ~~待主力機收尾：Tamriel VHGT 反解比對~~ ✅ 2026-06-16（20 格 delta 完全一致）
-~~VNML axis/編碼驗證~~ ✅ 2026-06-16（對 vanilla Tamriel VNML 逐 byte 比對，修了 3 bug：轉置 / StepUnits 8→128 / signed-byte up=(0,0,127)；見 [landed/world.md](../../workflows/feature-dev/landed/world.md)）
+~~VNML axis/編碼驗證~~ ✅ 2026-06-16（對 vanilla Tamriel VNML 逐 byte 比對，修了 3 bug：轉置 / StepUnits 8→128 / signed-byte up=(0,0,127)；見 [landed/world.md](../ModForge/workflows/feature-dev/landed/world.md)）

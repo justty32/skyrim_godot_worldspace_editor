@@ -1,6 +1,6 @@
 # Godot Placements 格式詳述
 
-← [design index](README.md)｜sub_proj：[README](../README.md)
+← [design index](README.md)｜repo：[README](../README.md)
 
 ## Godot 出圖檔案（`godot_export/placements.json`）
 
