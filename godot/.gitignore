@@ -1,0 +1,12 @@
+# Godot 4 editor cache & import artifacts
+.godot/
+
+# Test export artifacts
+terrain.png
+terrain.png.import
+texcache/
+texconfig.json
+placements.json
+splat_*.png
+splat_*.png.import
+modelcache/
