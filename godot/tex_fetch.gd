@@ -57,7 +57,17 @@ static func _valid_ref(ref: String) -> bool:
 	var formid := ref.substr(i + 3)
 	if master == "" or master.contains("/") or master.contains("\\") or master.contains(".."):
 		return false
-	return formid != "" and formid.is_valid_hex_number(false)
+	if formid.length() < 1 or formid.length() > 8:
+		return false
+	for j in range(formid.length()):
+		if "0123456789abcdefABCDEF".find(formid.substr(j, 1)) < 0:
+			return false
+	return formid.hex_to_int() <= 0xFFFFFF
+
+
+static func _canonical_ref(ref: String) -> String:
+	var i := ref.findn(":0x")
+	return ref.substr(0, i) + ":0x%06X" % ref.substr(i + 3).hex_to_int()
 
 
 # Return the Texture2D for an LTEX ref. Loads a cached PNG instantly; only shells out to the CLI
@@ -70,6 +80,7 @@ func get_texture(ref: String, allow_fetch: bool = false) -> Texture2D:
 	if not _valid_ref(ref):   # user-entered text → keep it out of cache filenames / CLI args
 		push_warning("TexFetch: ignoring malformed ref '%s' (expected '<master>:0xFORMID')" % ref)
 		return null
+	ref = _canonical_ref(ref)
 	if _cache.has(ref) and _cache[ref] != null:
 		return _cache[ref]
 

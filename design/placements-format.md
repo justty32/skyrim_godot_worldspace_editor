@@ -30,7 +30,7 @@
 |------|------|------|
 | `version` | int | 格式版本（目前 1） |
 | `coordinate_system` | string | `"godot4_y_up"` — Godot 4 標準座標（X=東、Y=上、Z=南） |
-| `base` | string | Skyrim base form ref（`<master>:0xFORMID` 或 in-spec editorId） |
+| `base` | string | Skyrim base form ref（`<master>:0xFORMID`；1–6 位 hex，也容忍 8 位前導零）或 in-spec editorId |
 | `position` | Vec3 | **公尺**，Godot 原生座標 |
 | `rotation` | Vec3 | **radians**，Godot 原生 Euler；ModForge 讀時轉 degrees |
 | `scale` | float | uniform 縮放；Godot plugin 限制等比，非等比取主軸並 warn |
@@ -44,13 +44,18 @@
     {
       "editorId": "MyWorld",
       "heightmap": { "path": "terrain.png", "originX": 0, "originY": 0, "minHeight": 0, "maxHeight": 8192 },
-      "godotPlacements": { "$include": "godot_export/placements.json" }
+      "godotPlacements": {
+        "path": "godot_export/placements.json",
+        "originX": 0,
+        "originY": 0
+      }
     }
   ]
 }
 ```
 
-`godotPlacements` 巢狀在 worldspace 節點下 → ModForge 從同一節點取 `OriginX/OriginY` 做座標換算，無需額外關聯欄位。
+`godotPlacements` 巢狀在 worldspace 節點下；`path` 指向 Godot 匯出檔，
+`originX` / `originY` 是該檔所屬 chunk 的 worldspace cell 原點（省略時皆為 0）。
 
 ## ModForge 座標換算（`coordinate_system: "godot4_y_up"`）
 

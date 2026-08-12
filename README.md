@@ -81,9 +81,9 @@ VHGT 編碼（signed int8 delta、每 delta=8 units）、NIF→glTF 工具選型
 
 ## Open
 
-- **小尾巴（不擋使用）**：物件 glTF 只取 diffuse 貼圖（無 normal/spec）；LE-format 真檔 nif 未驗（vanilla 多 SSE）；VTXT position row/col 序待最終目視（見 [WAIT_USER](../ModForge/wait_todo/worldspace-editor.md)）。
+- **小尾巴（不擋使用）**：物件 glTF 目前是無貼圖的 flat proxy；LE-format 真檔 nif 未驗（vanilla 多 SSE）；VTXT position row/col 序待最終目視（見 [WAIT_USER](../ModForge/wait_todo/worldspace-editor.md)）。
 
-~~box proxy → 真實 glTF + 貼圖~~ ✅ **GUI 確認 2026-06-18**：placement 顯示真實 vanilla 模型 + 真實貼圖（非方塊/灰模）。按 placement UI「Load real models」→ CLI `nifexport` 抽 model NIF → `nif2gltf`（解 shape→shader→textureset diffuse，[model-converter](../model-converter/README.md) 已對真實 SSE nif 修復）→ CLI `texpath` 抽貼圖 → `model_fetch.gd` GLTFDocument 載入 + `placement.set_model` 換 box。同款 BSA-抽取 pipeline as `texexport`。
+~~box proxy → 真實 glTF 幾何~~ ✅ **GUI 確認 2026-06-18**：placement 顯示真實 vanilla 模型幾何（非方塊）。按 placement UI「Load real models」→ CLI `nifexport` 抽 model NIF → `nif2gltf --flat` 轉為平色 glTF proxy → `model_fetch.gd` 以 `GLTFDocument` 載入 + `placement.set_model` 換 box。物件 diffuse/normal/spec 貼圖不在現行 converter 的 flat 契約內；地形 LTEX 貼圖仍由獨立 `texexport` pipeline 提供。
 
 ~~地形紋理 WYSIWYG（Godot 直接顯示真實草/泥土貼圖）~~ ✅ **in-game 確認 2026-06-18**：splat 筆刷下顯示真實 vanilla ground 貼圖（非平色 tint），base + 至多 4 層 per-vertex alpha 混合。CLI `texexport`（LTEX→diffuse .dds 從遊戲 BSA→PNG）+ `tex_fetch.gd`（OS.execute 呼叫、快取 res://texcache/）+ `terrain_material.gd`（ShaderMaterial，無貼圖 fallback 頂點色）。預覽 alpha 格＝匯出 splatmap 同份資料，所見＝VTXT 烘出。
 

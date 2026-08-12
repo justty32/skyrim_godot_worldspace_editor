@@ -3,7 +3,7 @@ extends Node
 ## Resolves a Skyrim base ref ("master:0xFORMID") to a real 3D model node, so a placed object shows
 ## its actual vanilla mesh instead of a box proxy. Two-stage, mirroring TexFetch:
 ##   1. ModForge CLI `nifexport`            → extract the base's model .nif from the game mesh BSAs
-##   2. nif2gltf (model-converter .venv)    → convert the .nif to glTF
+##   2. nif2gltf (model-converter .venv)    → convert the .nif to a flat glTF proxy
 ## The .gltf is cached under res://modelcache/ and loaded at runtime via GLTFDocument. Main-machine
 ## only (needs game data + dotnet + the model-converter venv); when a fetch fails callers keep the box.
 
@@ -29,7 +29,7 @@ func _ready() -> void:
 	var siblings := proj.get_base_dir().get_base_dir()
 	_cli_project = siblings.path_join("ModForge/src/ModForge.Cli")
 	_mc_dir = siblings.path_join("model-converter")
-	_mc_python = _mc_dir.path_join(".venv/bin/python")
+	_mc_python = _default_python(_mc_dir)
 	for d in _DATA_CANDIDATES:
 		if DirAccess.dir_exists_absolute(d):
 			_data_dir = d
@@ -40,7 +40,12 @@ func _ready() -> void:
 			_data_dir = cfg.get("data_dir", _data_dir)
 			_cli_project = cfg.get("cli_project", _cli_project)
 			_mc_dir = cfg.get("mc_dir", _mc_dir)
-			_mc_python = cfg.get("mc_python", _mc_dir.path_join(".venv/bin/python"))
+			_mc_python = cfg.get("mc_python", _default_python(_mc_dir))
+
+
+static func _default_python(mc_dir: String) -> String:
+	var relative := ".venv/Scripts/python.exe" if OS.get_name() == "Windows" else ".venv/bin/python"
+	return mc_dir.path_join(relative)
 
 
 func available() -> bool:
@@ -58,7 +63,17 @@ static func _valid_ref(ref: String) -> bool:
 	var formid := ref.substr(i + 3)
 	if master == "" or master.contains("/") or master.contains("\\") or master.contains(".."):
 		return false
-	return formid != "" and formid.is_valid_hex_number(false)
+	if formid.length() < 1 or formid.length() > 8:
+		return false
+	for j in range(formid.length()):
+		if "0123456789abcdefABCDEF".find(formid.substr(j, 1)) < 0:
+			return false
+	return formid.hex_to_int() <= 0xFFFFFF
+
+
+static func _canonical_ref(ref: String) -> String:
+	var i := ref.findn(":0x")
+	return ref.substr(0, i) + ":0x%06X" % ref.substr(i + 3).hex_to_int()
 
 
 # A fresh instance of the model for `ref`, or null. allow_fetch=true permits the slow CLI+convert
@@ -69,6 +84,7 @@ func get_model(ref: String, allow_fetch: bool = false) -> Node3D:
 	if not _valid_ref(ref):   # user-entered text → keep it out of cache filenames / CLI args
 		push_warning("ModelFetch: ignoring malformed ref '%s' (expected '<master>:0xFORMID')" % ref)
 		return null
+	ref = _canonical_ref(ref)
 	if not _cache.has(ref):
 		_cache[ref] = _build_template(ref, allow_fetch)
 	var tmpl: Node3D = _cache[ref]
@@ -99,31 +115,26 @@ func _export_and_convert(ref: String, gltf_abs: String) -> bool:
 			"nifexport", _data_dir, cache_dir, ref], out, true) != 0 or not FileAccess.file_exists(nif_abs):
 		push_warning("ModelFetch: nifexport %s failed: %s" % [ref, "\n".join(out)])
 		return false
-	# 2) convert .nif -> .gltf via the model-converter venv. `env PYTHONPATH=<mc>` lets `-m nif2gltf`
-	# resolve without depending on the process cwd (OS.execute doesn't set a working directory).
+	# 2) convert .nif -> .gltf via the model-converter venv. Temporarily prepend the sibling repo
+	# to PYTHONPATH because OS.execute cannot set a working directory or per-process environment.
 	out = []
-	if OS.execute("env", ["PYTHONPATH=" + _mc_dir, _mc_python, "-m", "nif2gltf",
-			"--in", nif_abs, "--out", gltf_abs, "--flat"], out, true) != 0 or not FileAccess.file_exists(gltf_abs):
+	var had_pythonpath := OS.has_environment("PYTHONPATH")
+	var old_pythonpath := OS.get_environment("PYTHONPATH")
+	var separator := ";" if OS.get_name() == "Windows" else ":"
+	var pythonpath := _mc_dir
+	if old_pythonpath != "":
+		pythonpath += separator + old_pythonpath
+	OS.set_environment("PYTHONPATH", pythonpath)
+	var code := OS.execute(_mc_python, ["-m", "nif2gltf", "--in", nif_abs,
+		"--out", gltf_abs, "--flat"], out, true)
+	if had_pythonpath:
+		OS.set_environment("PYTHONPATH", old_pythonpath)
+	else:
+		OS.unset_environment("PYTHONPATH")
+	if code != 0 or not FileAccess.file_exists(gltf_abs):
 		push_warning("ModelFetch: nif2gltf %s failed: %s" % [ref, "\n".join(out)])
 		return false
-	# 3) pull the model's diffuse textures (named in the <stem>.textures.json sidecar) out of the
-	# game BSAs as <basename>.png next to the glTF, so GLTFDocument resolves its image uris → textured.
-	_fetch_textures(cache_dir.path_join(safe + ".textures.json"), cache_dir)
 	return true
-
-
-# Extract the textures a glTF references (sidecar: {png_uri: nif_dds_path}) into out_dir as PNGs.
-# Best-effort — a missing texture just leaves that material untextured, not a failure.
-func _fetch_textures(sidecar_abs: String, out_dir: String) -> void:
-	if not FileAccess.file_exists(sidecar_abs):
-		return
-	var map = JSON.parse_string(FileAccess.get_file_as_string(sidecar_abs))
-	if not (map is Dictionary) or map.is_empty():
-		return
-	var dds_paths: Array = map.values()
-	var out: Array = []
-	OS.execute("dotnet", ["run", "--project", _cli_project, "-c", "Release", "--",
-		"texpath", _data_dir, out_dir, ",".join(dds_paths)], out, true)
 
 
 func _load_gltf(gltf_abs: String) -> Node3D:
