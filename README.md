@@ -79,6 +79,20 @@ VHGT 編碼（signed int8 delta、每 delta=8 units）、NIF→glTF 工具選型
 
 `godot/` 各 `.gd`（~100 行/檔）的逐檔職責、顯示縮放與高度著色規則 → 見 [frontend-structure.md](design/frontend-structure.md)。
 
+## 離線 placement 契約測試
+
+`tests/test_placements_contract.py` 把真正的 Godot exporter 輸出一路驗到 ModForge
+寫出的 REFR；會鎖定 format version、座標系、display scale 還原、origin offset、
+instanceId、base、rotation 軸轉換與 scale。執行：
+
+```powershell
+python tests/test_placements_contract.py
+```
+
+快速 source gate 永遠執行；runtime 層需要 Godot 4 在 PATH，或設定 `GODOT_BIN`。
+同層 `../ModForge` 存在時會再執行完整 consumer E2E（不同層可設 `MODFORGE_DIR`）；
+缺 Godot 時 unittest 會明示 skip，而不是拿手寫 JSON 冒充 exporter 輸出。
+
 ## Open
 
 - **小尾巴（不擋使用）**：物件 glTF 目前是無貼圖的 flat proxy；LE-format 真檔 nif 未驗（vanilla 多 SSE）；VTXT position row/col 序待最終目視（見 [WAIT_USER](../ModForge/wait_todo/worldspace-editor.md)）。

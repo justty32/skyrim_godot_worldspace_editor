@@ -57,6 +57,21 @@
 `godotPlacements` 巢狀在 worldspace 節點下；`path` 指向 Godot 匯出檔，
 `originX` / `originY` 是該檔所屬 chunk 的 worldspace cell 原點（省略時皆為 0）。
 
+## 可執行契約
+
+格式 producer 的真相是 `godot/placements_io.gd:PlacementsIo._serialize`；
+`godot/tests/placements_contract.gd` 用實際 `PlacedObject` node 呼叫它，不另造一份
+JSON fixture。`tests/test_placements_contract.py` 在 Godot 4 headless 下檢查輸出，並於
+同層 ModForge 存在時以公開 CLI build plugin，再透過其公開 `PluginIo.Load` 讀回最終
+REFR。這會讓 producer 的 version／欄位／display-scale 還原，或 consumer 的
+origin／座標／rotation／instanceId／base／scale 任一協議漂移直接使測試失敗。
+
+```powershell
+python tests/test_placements_contract.py
+```
+
+Godot 不在 PATH 時可設 `GODOT_BIN`；ModForge 不在同層時可設 `MODFORGE_DIR`。
+
 ## ModForge 座標換算（`coordinate_system: "godot4_y_up"`）
 
 ```

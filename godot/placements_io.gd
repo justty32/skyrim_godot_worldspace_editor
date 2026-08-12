@@ -3,6 +3,9 @@ class_name PlacementsIo
 ## written as canonical Godot-native metres (display scales divided out) so they
 ## round-trip through ModForge's godot4_y_up → Skyrim conversion.
 
+const FORMAT_VERSION := 1
+const COORDINATE_SYSTEM := "godot4_y_up"
+
 static func export_dialog(host: Node, tool: PlacementTool, terrain: TerrainGrid,
 		status: Label) -> void:
 	var dlg := FileDialog.new()
@@ -55,8 +58,8 @@ static func _serialize(tool: PlacementTool, terrain: TerrainGrid) -> String:
 			entry["instanceId"] = obj.instance_id
 		arr.append(entry)
 	return JSON.stringify({
-		"version": 1,
-		"coordinate_system": "godot4_y_up",
+		"version": FORMAT_VERSION,
+		"coordinate_system": COORDINATE_SYSTEM,
 		"placements": arr,
 	}, "  ")
 
