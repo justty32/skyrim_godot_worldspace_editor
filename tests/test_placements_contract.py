@@ -97,11 +97,15 @@ class RuntimePlacementContractTests(unittest.TestCase):
 
         cls.tempdir = tempfile.TemporaryDirectory(prefix="godot_modforge_contract_")
         cls.work = Path(cls.tempdir.name)
+        # Godot 4.6's editor scan writes .gd.uid sidecars beside newly discovered scripts. Run the
+        # real project from an isolated copy so a successful contract test never dirties the checkout.
+        cls.godot_project = cls.work / "godot"
+        shutil.copytree(GODOT_PROJECT, cls.godot_project, ignore=shutil.ignore_patterns(".godot"))
         cls.placements_path = cls.work / "placements.json"
         # A fresh checkout has no .godot/global_script_class_cache.cfg yet. Let the editor perform
         # its normal headless scan before --script parses references to the project's class_name types.
         run(
-            [cls.godot, "--editor", "--headless", "--path", str(GODOT_PROJECT), "--quit"],
+            [cls.godot, "--editor", "--headless", "--path", str(cls.godot_project), "--quit"],
             REPO,
         )
         run(
@@ -109,7 +113,7 @@ class RuntimePlacementContractTests(unittest.TestCase):
                 cls.godot,
                 "--headless",
                 "--path",
-                str(GODOT_PROJECT),
+                str(cls.godot_project),
                 "--script",
                 PRODUCER_SCRIPT,
                 "--",
