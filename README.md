@@ -93,6 +93,12 @@ python tests/test_placements_contract.py
 同層 `../ModForge` 存在時會再執行完整 consumer E2E（不同層可設 `MODFORGE_DIR`）；
 缺 Godot 時 unittest 會明示 skip，而不是拿手寫 JSON 冒充 exporter 輸出。
 
+`tests/test_model_fetch_contract.py` 另驗 model-converter → Godot 的真實 process boundary：
+synthetic NIF 經 production `nif2gltf` CLI 產生 `.gltf + .bin`，再由 production
+`ModelFetch._load_gltf()` 載入並檢查 mesh、primitive、頂點軸向與尺度；也覆蓋 missing
+bin、bad glTF、converter nonzero 與 repo cache 不污染。執行方式相同，runtime 層可用
+`GODOT_BIN`、`MODEL_CONVERTER_DIR` 覆寫工具位置。
+
 ## Open
 
 - **小尾巴（不擋使用）**：物件 glTF 目前是無貼圖的 flat proxy；LE-format 真檔 nif 未驗（vanilla 多 SSE）；VTXT position row/col 序待最終目視（見 [WAIT_USER](../ModForge/wait_todo/worldspace-editor.md)）。

@@ -23,11 +23,12 @@
 | `io_dialog.gd` | 高度 PNG export/import FileDialog |
 | `png16.gd` / `png16_codec.gd` | 16-bit PNG encode/decode + chunk/CRC |
 | `placement.gd` | `PlacedObject` 薄節點：metadata（base/instanceId/uniform_scale）+ box proxy 視覺；`set_model` 換成真實 glTF 模型（game-unit×METERS_PER_UNIT→顯示公尺，box 當 fallback）|
-| `model_fetch.gd` | `ModelFetch`：base ref → 真實模型的平色 proxy 節點。兩段：CLI `nifexport`（抽 model .nif）→ `nif2gltf --flat`（venv）轉 glTF，快取 res://modelcache/，`GLTFDocument` runtime 載入。主力機限定，抽不到→留 box |
+| `model_fetch.gd` | `ModelFetch`：base ref → 真實模型的平色 proxy 節點。兩段：CLI `nifexport`（抽 model .nif）→ `nif2gltf --flat` 轉 glTF，快取 res://modelcache/，`GLTFDocument` runtime 載入。converter 優先走 `MODFORGE_NIF2GLTF_BIN` 黑盒 executable；未設才走同層 model-converter venv 的 `python -m nif2gltf` fallback。nonzero／缺 `.gltf`／缺 `.bin`／Godot 無法解析皆 fail closed 並清掉整對 partial/stale cache，讓下次 explicit fetch 可重試。主力機限定，抽不到→留 box |
 | `placement_tool.gd` | `PlacementTool`：placement 筆狀態 + 物件 list（place 吸地表 / restore / undo / clear）；rotation 三軸 `current_rot_x/y/z`|
 | `placement_ui.gd` | 可收合「OBJECT」大項（mode 切換、base/instance 欄、**rotation X/Y/Z**/scale、count、JSON I/O 按鈕）|
 | `placements_io.gd` | `placements.json` 匯出/匯入（顯示 scale 除掉還原 canonical 公尺）|
 | `tests/placements_contract.gd` | headless placement contract producer：建立真實 `PlacedObject` 並呼叫 production `PlacementsIo._serialize`；外層 `tests/test_placements_contract.py` 餵同層 ModForge build 並讀回 REFR |
+| `tests/model_fetch_contract.gd` | headless model consumer probe（只在 temporary project copy 執行）；外層 `tests/test_model_fetch_contract.py` 以 model-converter synthetic NIF + production CLI 驗 `ModelFetch` executable priority、Godot mesh/primitive/vertices/軸向尺度與 missing-bin/bad-glTF/nonzero fail-closed |
 | `splat_tool.gd` | `SplatTool`：紋理 alpha 筆 — 層模型（多層 LTEX ref + alpha 格）+ paint（active 層、radius/strength/erase falloff）+ base 貼圖；地形視覺委派 `splat_render` |
 | `splat_render.gd` | `SplatRender`（static，吃 `SplatTool`）：層資料 → 地形視覺橋——WYSIWYG 真實貼圖混合（`TerrainMaterial`）或頂點色 tint fallback |
 | `splat_ui.gd` | 可收合「TEXTURE」大項（Splat Mode 切換、base 貼圖欄、層選擇+新增、LTEX ref〔Enter 抓圖〕、Paint/Erase、radius〔改 → 更新游標〕/strength、清層、Load real textures、splatmap PNG I/O）|
@@ -51,7 +52,10 @@
 ```
 
 省略 `mc_python` 時，Linux/macOS 取 `<mc_dir>/.venv/bin/python`，Windows 取
-`<mc_dir>/.venv/Scripts/python.exe`。全部可省，省的走推導值。
+`<mc_dir>/.venv/Scripts/python.exe`。`ModelFetch` 的 converter 優先序為：
+`MODFORGE_NIF2GLTF_BIN`（直接接 `--in/--out/--flat`）＞ 上述同層／texconfig
+`mc_python -m nif2gltf` fallback。明示的 env hook 不存在時不會偷偷改跑 fallback。
+其餘值全部可省，省的走推導值。
 
 ---
 
