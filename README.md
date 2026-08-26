@@ -22,7 +22,7 @@
 
 ## MVP scope（已達成並超出）
 
-原始 MVP＝**單格 PNG → LAND → COW 進入、地形有起伏**。現況已遠超：**多格 heightmap**（VHGT/VNML/seam）、**物件擺放 → REFR**、**地形紋理**（單層 baseTexture + 多層 splatmap → BTXT/VTXT）整鏈離線完成；剩主力機驗收（Godot GUI 實跑、xEdit byte-verify）與 box proxy 換真實 glTF。
+原始 MVP＝**單格 PNG → LAND → COW 進入、地形有起伏**。現況已遠超：**多格 heightmap**（VHGT/VNML/seam）、**物件擺放 → REFR**、**地形紋理**（單層 baseTexture + 多層 splatmap → BTXT/VTXT）整鏈離線完成；剩主力機驗收（Godot GUI 實跑、xEdit byte-verify）。
 
 ---
 
