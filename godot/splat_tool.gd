@@ -69,6 +69,13 @@ func add_layer(texture: String = "") -> void:
 
 
 func set_active(i: int) -> void:
+	if layers.is_empty():
+		# clampi(i, 0, -1) returns -1, and GDScript's negative indexing then makes layers[active]
+		# throw on the very next refresh. Unreachable today (configure() always adds a layer and
+		# nothing removes one), but this guard is what keeps a future "delete layer" button safe.
+		active = 0
+		changed.emit()
+		return
 	active = clampi(i, 0, layers.size() - 1)
 	SplatRender.refresh_visual(self)
 	changed.emit()
@@ -79,6 +86,8 @@ func count() -> int:
 
 
 func active_texture() -> String:
+	if active < 0 or active >= layers.size():
+		return ""
 	return layers[active]["texture"]
 
 

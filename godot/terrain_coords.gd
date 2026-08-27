@@ -63,8 +63,13 @@ static func surface_y_at(t: TerrainGrid, x: float, z: float) -> float:
 # correctly blocks the ray. Returns ZERO when the ray misses the grid footprint / surface.
 static func get_hit_position(t: TerrainGrid, camera: Camera3D, screen_pos: Vector2) -> Vector3:
 	if camera == null: return Vector3.ZERO
-	var from := camera.project_ray_origin(screen_pos)
-	var dir  := camera.project_ray_normal(screen_pos)
+	return raycast_surface(t, camera.project_ray_origin(screen_pos), camera.project_ray_normal(screen_pos))
+
+
+# The picking math itself, on an arbitrary world-space ray. Split out of get_hit_position so it can
+# be exercised headless without a Camera3D/Viewport (tests/terrain_coords_contract.gd) — the camera
+# only ever contributed the ray. Returns ZERO for "no hit".
+static func raycast_surface(t: TerrainGrid, from: Vector3, dir: Vector3) -> Vector3:
 	var ds   := t.step * t.vis_surface_scale
 	var maxx := (t.verts_x - 1) * ds
 	var minz := -(t.verts_y - 1) * ds
@@ -87,19 +92,32 @@ static func get_hit_position(t: TerrainGrid, camera: Camera3D, screen_pos: Vecto
 		var p := from + dir * ct
 		var sy := surface_y_at(t, p.x, p.z)
 		if not (is_nan(sy) or p.y >= sy):
-			if i == 0: return Vector3.ZERO   # camera already under the surface
+			if i == 0:
+				# Already below the surface at the very first sample. `ct` here is where the ray
+				# ENTERS the grid footprint, which is not necessarily the ray origin:
+				#   t0 == 0 — the ray starts inside the footprint, i.e. the camera itself is under
+				#             the surface; there is no hit in front of it.
+				#   t0 >  0 — the ray reached the footprint only here, entering the terrain through
+				#             its side (low angle at raised ground). The entry point IS the hit;
+				#             returning ZERO used to drop the cursor and swallow the click.
+				if t0 <= 0.0: return Vector3.ZERO
+				return _clamp_to_footprint(p, maxx, minz)
 			var lo := prev_t; var hi := ct
 			for k in 16:
 				var mid := (lo + hi) * 0.5
 				var sm := surface_y_at(t, (from + dir * mid).x, (from + dir * mid).z)
 				if is_nan(sm) or (from + dir * mid).y >= sm: lo = mid
 				else: hi = mid
-			var hit := from + dir * hi
-			hit.x = clampf(hit.x, 0.0, maxx)
-			hit.z = clampf(hit.z, minz, 0.0)
-			return hit
+			return _clamp_to_footprint(from + dir * hi, maxx, minz)
 		prev_t = ct
 	return Vector3.ZERO
+
+
+# Keep a hit on the grid: bisection/entry points can land a hair outside the footprint.
+static func _clamp_to_footprint(p: Vector3, maxx: float, minz: float) -> Vector3:
+	p.x = clampf(p.x, 0.0, maxx)
+	p.z = clampf(p.z, minz, 0.0)
+	return p
 
 
 # [t_enter, t_exit] (Vector2) where `o + d*t` stays within [lo, hi] on one axis; null if never.

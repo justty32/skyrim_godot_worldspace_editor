@@ -40,12 +40,7 @@ static func build(vbox: VBoxContainer, splat: SplatTool,
 	tex_edit.text_submitted.connect(func(t: String): splat.set_active_texture(t))
 
 	# Keep the OptionButton + texture field in sync with the tool's layer state.
-	var refresh := func():
-		opt.clear()
-		for i in splat.count():
-			opt.add_item("Layer %d" % i)
-		opt.select(splat.active)
-		tex_edit.text = splat.active_texture()
+	var refresh := func(): sync_layer_controls(opt, tex_edit, splat)
 	opt.item_selected.connect(func(i: int): splat.set_active(i))
 	btn_add.pressed.connect(func(): splat.add_layer(); refresh.call())
 	splat.changed.connect(refresh)
@@ -83,6 +78,24 @@ static func build(vbox: VBoxContainer, splat: SplatTool,
 	btn_exp.pressed.connect(on_export); vbox.add_child(btn_exp)
 	var btn_imp := Button.new(); btn_imp.text = "Load splatmap PNG"
 	btn_imp.pressed.connect(on_import); vbox.add_child(btn_imp)
+
+
+# Pull the layer OptionButton + LTEX field back in line with the tool. Idempotent on purpose:
+# SplatTool.paint() emits `changed` EVERY tick while the LMB is held, and this runs on that signal.
+# The old body cleared and refilled the OptionButton and rewrote the LineEdit unconditionally, so
+# painting rebuilt the dropdown at frame rate and wiped a half-typed LTEX ref out of the field.
+static func sync_layer_controls(opt: OptionButton, tex_edit: LineEdit, splat: SplatTool) -> void:
+	if opt.item_count != splat.count():
+		opt.clear()
+		for i in splat.count():
+			opt.add_item("Layer %d" % i)
+	if splat.count() > 0 and opt.selected != splat.active:
+		opt.select(splat.active)
+	# Never clobber a ref the user is still typing: only write when the value really differs AND
+	# the field is not the one holding focus.
+	var want := splat.active_texture()
+	if tex_edit.text != want and not tex_edit.has_focus():
+		tex_edit.text = want
 
 
 static func _lbl(parent: Control, text: String, bold: bool = false) -> Label:

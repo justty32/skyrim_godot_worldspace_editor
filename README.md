@@ -106,6 +106,19 @@ python tests/test_placements_contract.py
 雖然會印 `SCRIPT ERROR: Parse Error`，但 **exit code 仍是 0**，也擋不住。`--check-only`
 會回非零，且連帶解析外部 `class_name` 成員，所以引用到壞類別的檔會一起紅。
 
+`tests/test_terrain_coords.py` 驗 `TerrainCoords.raycast_surface`——游標與點擊的落點判定。
+每個編輯模式（高度筆刷、splat 筆刷、物件擺放）都吃它的結果，`Vector3.ZERO` 是講好的「沒打到」
+哨兵值。斷言跑在真正的 Godot runtime 上（`godot/tests/terrain_coords_contract.gd`），不需要
+Camera3D：`get_hit_position` 只把螢幕座標換成一條射線，行進、footprint 裁切與各種 miss 都在
+`raycast_surface` 裡。含一條回歸：**射線從側面低角度進入抬高地形**時，第一個取樣點是
+footprint 進入點而不是相機位置，舊碼把它當成「相機在地下」而回 ZERO。
+
+`tests/test_splat_contract.py` 驗 splatmap PNG（ModForge `textureLayers[].splatmap` 的生產者契約）
+與兩個只在筆刷按住時才出現的側欄行為。PNG 的 **north-on-top 列序**是拿 Python 自己寫的 8-bit
+解碼器驗的，不是拿 Godot 的 reader——writer 與 reader 一起弄反時 round-trip 測試照樣全綠，
+只有獨立解碼器擋得住。另外覆蓋尺寸不符要拒收、`SplatTool.set_active` 在圖層被清空時不能變成 -1、
+以及 `SplatUi.sync_layer_controls` 必須冪等（`paint()` 每 tick 都 `changed.emit()`）。
+
 `tests/test_model_fetch_contract.py` 另驗 model-converter → Godot 的真實 process boundary：
 synthetic NIF 經 production `nif2gltf` CLI 產生 `.gltf + .bin`，再由 production
 `ModelFetch._load_gltf()` 載入並檢查 mesh、primitive、頂點軸向與尺度；也覆蓋 missing
