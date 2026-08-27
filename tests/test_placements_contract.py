@@ -91,7 +91,7 @@ class ProducerSourceContractTests(unittest.TestCase):
 class RuntimePlacementContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.godot = executable_from_env_or_path("GODOT_BIN", ("godot4", "godot"))
+        cls.godot = executable_from_env_or_path("GODOT_BIN", ("godot4", "godot", "godot-mono"))
         if cls.godot is None:
             raise unittest.SkipTest("Godot not found; set GODOT_BIN to run the producer/E2E test")
 

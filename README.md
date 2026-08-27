@@ -85,11 +85,13 @@ VHGT 編碼（signed int8 delta、每 delta=8 units）、NIF→glTF 工具選型
 寫出的 REFR；會鎖定 format version、座標系、display scale 還原、origin offset、
 instanceId、base、rotation 軸轉換與 scale。執行：
 
-```powershell
+```bash
 python tests/test_placements_contract.py
 ```
 
-快速 source gate 永遠執行；runtime 層需要 Godot 4 在 PATH，或設定 `GODOT_BIN`。
+快速 source gate 永遠執行；runtime 層需要 Godot 4 在 PATH（自動找 `godot4` / `godot` /
+`godot-mono`），或設定 `GODOT_BIN`。本機 Manjaro 走 `godot-mono`（`/usr/bin/godot-mono`，
+4.7.2.stable.mono），headless 即可，不必開 GUI。
 同層 `../ModForge` 存在時會再執行完整 consumer E2E（不同層可設 `MODFORGE_DIR`）；
 缺 Godot 時 unittest 會明示 skip，而不是拿手寫 JSON 冒充 exporter 輸出。
 
