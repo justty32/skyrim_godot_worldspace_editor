@@ -10,17 +10,23 @@ static func input(m: WorldspaceEditor, event: InputEvent) -> void:
 	# R/L/F/S key shortcuts are gone (S would have fought "move back").
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		# A release ALWAYS ends the stroke, wherever the cursor is. Bailing out on over_ui()
+		# first used to swallow the release when the drag ended over the side panel, leaving
+		# _painting stuck true — the brush then kept eating terrain with no button held as
+		# soon as the cursor came back over the grid.
+		if not event.pressed:
+			m._painting = false
+			return
 		if over_ui(m, event.position):
 			return
 		if m._place_mode:
-			if event.pressed:
-				var hit := m.terrain.get_hit_position(m.camera_rig.get_camera(), event.position)
-				if hit != Vector3.ZERO:
-					m._placement.place_at(hit)
+			var hit := m.terrain.get_hit_position(m.camera_rig.get_camera(), event.position)
+			if hit != Vector3.ZERO:
+				m._placement.place_at(hit)
 		else:
 			# Both height-brush and splat modes paint on LMB drag (routed in process()).
-			m._painting = event.pressed
-			if m._painting and not m._splat_mode and m.terrain.brush_mode == TerrainGrid.BrushMode.FLATTEN:
+			m._painting = true
+			if not m._splat_mode and m.terrain.brush_mode == TerrainGrid.BrushMode.FLATTEN:
 				m.terrain.flatten_height = mid_height_at_mouse(m)
 
 
@@ -39,6 +45,11 @@ static func process(m: WorldspaceEditor, delta: float) -> void:
 		var h   := m.terrain.get_height(col, row)
 		if m._lbl_pos:
 			m._lbl_pos.text = "col %d  row %d\nH: %.0f units" % [col, row, h]
+
+	# Second safety net for the same defect: a release delivered outside the window (alt-tab,
+	# dragging off-screen) never reaches _input at all, so trust the physical button state.
+	if m._painting and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		m._painting = false
 
 	if m._painting and hit != Vector3.ZERO and not over_ui(m, mouse):
 		if m._splat_mode:
