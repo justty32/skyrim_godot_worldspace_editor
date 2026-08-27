@@ -2,15 +2,16 @@
 
 ← [design index](README.md)｜repo：[README](../README.md)
 
-各 `.gd` 按職責分層拆檔（多數 ~100 行；coordinator `main.gd` 與資料節點 `terrain.gd` 略多）：
+各 `.gd` 按職責分層拆檔（多數 ~100 行；資料節點 `terrain.gd` 略多）：
 
 | 檔 | 職責 |
 |---|---|
-| `main.gd` | 根場景 `WorldspaceEditor`：組裝、UI setup、display 同步、export/import + 模式切換 callback；輸入/walk 委派下兩檔 |
+| `main.gd` | 根場景 `WorldspaceEditor`：常數與狀態、display 同步、`_add_cells`、export/import + 模式切換 callback；組裝委派 `editor_setup`，輸入/walk 委派下兩檔 |
+| `editor_setup.gd` | `EditorSetup`（static，吃 `WorldspaceEditor`）：`_ready` 的整段組裝——env／terrain／camera rig／cursor／格線／四個工具節點，以及由四個 UI 模組拼出的側欄。**順序是有意義的**（terrain 要先於 camera、工具要先於側欄拿它們的 callback），由 `tests/test_editor_boot.py` 釘住 |
 | `editor_input.gd` | `EditorInput`（static，吃 `WorldspaceEditor`）：LMB place/paint 派發、逐幀 cursor + 高度讀數 + paint tick（筆刷模式改由側欄按鈕選，原 R/L/F/S 熱鍵移除——S 會和 WASD 後退衝突）|
 | `walk_mode.gd` | `WalkMode`（static）：第一人稱走地形預覽 enter/exit（生 PlayerController、暫停編輯輸入） |
 | `terrain.gd` | 高度資料 + 碰撞 body（`TerrainGrid`）；座標換算委派 `terrain_coords` |
-| `terrain_coords.gd` | `TerrainCoords`（static）：Skyrim↔Godot↔display↔vertex 座標換算 + 相機 ray 取點。`get_hit_position` 沿射線 **raymarch 打地形表面**（雙線性 `surface_y_at` 取高度、`_slab` 先夾 footprint 限步數）→ 抬起的地形會擋住游標，非固定中平面 |
+| `terrain_coords.gd` | `TerrainCoords`（static）：Skyrim↔Godot↔display↔vertex 座標換算 + ray 取點。`get_hit_position` 只把螢幕座標換成射線，交給 `raycast_surface(t, from, dir)` 沿射線 **raymarch 打地形表面**（雙線性 `surface_y_at` 取高度、`_slab` 先夾 footprint 限步數）→ 抬起的地形會擋住游標，非固定中平面。拆成兩層是為了讓落點判定不必有 Camera3D／Viewport 也能離線驗（`tests/test_terrain_coords.py`）。射線**從側面**進入 footprint 時，第一個取樣點已在地表下代表它從地形側壁進去，回進入點；只有射線起點就在 footprint 內（＝相機真的在地下）才回 `Vector3.ZERO` |
 | `terrain_mesh.gd` | 從高度建 ArrayMesh（vertex/normal/uv + 高度漸層頂點色 + active splat 層 alpha overlay blend） |
 | `terrain_brush.gd` | 4 brush 模式（raise/lower/flatten/smooth） |
 | `camera_rig.gd` | orbit 編輯相機（middle orbit / scroll zoom / right pan）；**WASD 在地面平面平移**（依相機朝向，`_process`，文字框聚焦時跳過）；**Shift+滾輪不縮放**（讓位給側欄捲動）|

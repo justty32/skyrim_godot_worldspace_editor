@@ -37,50 +37,11 @@ var _tex_fetch: TexFetch = null
 var _splat_mode := false
 
 
-func _ready() -> void:
-	SceneBuilder.environment(self)
-	terrain = TerrainGrid.new()
-	add_child(terrain)
-	terrain.configure(CELLS_X, CELLS_Y, MIN_HEIGHT, MAX_HEIGHT)
-	camera_rig  = SceneBuilder.camera(self, terrain)
-	_cursor     = SceneBuilder.cursor(self)
-	_grid_lines = SceneBuilder.grid_outlines(self, terrain.cells_x, terrain.cells_y, terrain)
-	_model_fetch = ModelFetch.new()
-	add_child(_model_fetch)
-	_placement  = PlacementTool.new()
-	add_child(_placement)
-	_placement.configure(terrain, _model_fetch)
-	_tex_fetch  = TexFetch.new()
-	add_child(_tex_fetch)
-	_splat      = SplatTool.new()
-	add_child(_splat)
-	_splat.configure(terrain, _tex_fetch)
-	_setup_ui()
+# ── Scene assembly (delegated) ─────────────────────────────────────────────────
+# The whole build-out — environment, terrain, camera, cursor, grid lines, the four tool nodes and
+# the side panel — lives in EditorSetup, so this script stays "state + the hooks the panel calls".
 
-
-func _setup_ui() -> void:
-	var canvas := CanvasLayer.new()
-	add_child(canvas)
-
-	var panel := WorldUI.new()
-	panel.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE, Control.PRESET_MODE_MINSIZE)
-	canvas.add_child(panel)
-	panel.setup(terrain, _ui_width, _update_cursor, _sync_display,
-		_on_export_png, _on_import_png, _enter_walk_mode)
-	PlacementUi.build(panel.content_vbox(), _placement,
-		_toggle_place_mode, _on_export_placements, _on_import_placements)
-	SplatUi.build(panel.content_vbox(), _splat,
-		_toggle_splat_mode, _on_export_splat, _on_import_splat, _update_cursor)
-	GridUi.build(panel.content_vbox(), terrain, _add_cells)
-	_lbl_pos   = panel.lbl_pos
-	_lbl_brush = panel.lbl_brush
-
-	var bottom := Label.new()
-	bottom.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	bottom.add_theme_color_override("font_color", Color.WHITE)
-	bottom.text = "WASD: move  |  Middle-drag: orbit  |  Scroll: zoom  |  Right-drag: pan  |  LMB: paint  |  Shift+Scroll: panel"
-	bottom.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	canvas.add_child(bottom)
+func _ready() -> void: EditorSetup.build(self)
 
 
 # Syncs camera and grid after any display-scale change (height or surface).
