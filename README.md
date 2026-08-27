@@ -106,6 +106,14 @@ python tests/test_placements_contract.py
 雖然會印 `SCRIPT ERROR: Parse Error`，但 **exit code 仍是 0**，也擋不住。`--check-only`
 會回非零，且連帶解析外部 `class_name` 成員，所以引用到壞類別的檔會一起紅。
 
+`tests/test_terrain_mesh.py` 驗高度筆刷與增量網格更新——heightmap 是這個編輯器的主要產物
+（ModForge 拿它生 LAND/VHGT），而每一個筆刷 tick 都走 `TerrainBrush.apply` ＋
+`TerrainMeshBuilder.update_region`。增量路徑存在的唯一理由就是它應該跟整份重建等價，
+而這句話先前只寫在註解裡沒人驗。五種筆劃（RAISE 中央／RAISE 角落／LOWER／FLATTEN／SMOOTH）
+各比對一次增量與 `build_full` 的**已上傳 surface**（不是 `_m_*` 來源陣列——那樣會放過
+「算完忘了 upload」）；另驗 smoothstep falloff 在半徑處歸零、筆刷不越界、以及長筆劃會在
+`max_height` 飽和而不是溢出高度範圍。
+
 `tests/test_terrain_coords.py` 驗 `TerrainCoords.raycast_surface`——游標與點擊的落點判定。
 每個編輯模式（高度筆刷、splat 筆刷、物件擺放）都吃它的結果，`Vector3.ZERO` 是講好的「沒打到」
 哨兵值。斷言跑在真正的 Godot runtime 上（`godot/tests/terrain_coords_contract.gd`），不需要
