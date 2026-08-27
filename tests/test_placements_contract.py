@@ -9,6 +9,7 @@ PlacementsIo._serialize in the Godot project.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
@@ -52,6 +53,24 @@ def run(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
             f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
         )
     return result
+
+
+def build_fingerprint(directory: Path) -> tuple[tuple[str, str], ...]:
+    """SHA-256 of every file under `directory`, so a rebuild that changes content is detectable.
+
+    `test_modforge_build_emits_matching_refr` builds the SIBLING ModForge checkout in place and then
+    invokes it with `--no-build`. If anything else rebuilds that checkout in between — another agent
+    line, an IDE, a file watcher — the CLI that runs is not the one this test built, and every
+    assertion below it becomes a statement about someone else's tree. A deterministic rebuild of
+    unchanged sources produces identical bytes, so this only fires when the binary really differs.
+    """
+    if not directory.is_dir():
+        return ()
+    return tuple(
+        (str(item.relative_to(directory)), hashlib.sha256(item.read_bytes()).hexdigest())
+        for item in sorted(directory.rglob("*"))
+        if item.is_file()
+    )
 
 
 class ProducerSourceContractTests(unittest.TestCase):
@@ -152,6 +171,9 @@ class RuntimePlacementContractTests(unittest.TestCase):
 
         cli_project = modforge / "src" / "ModForge.Cli" / "ModForge.Cli.csproj"
         run(["dotnet", "build", str(cli_project), "--nologo"], modforge)
+        cli_output = cli_project.parent / "bin" / "Debug"
+        built = build_fingerprint(cli_output)
+        self.assertNotEqual((), built, f"dotnet build left no artifacts under {cli_output}")
 
         spec_path = self.work / "contract_spec.json"
         plugin_path = self.work / "ContractPlacement.esp"
@@ -179,6 +201,16 @@ class RuntimePlacementContractTests(unittest.TestCase):
 
         cli = ["dotnet", "run", "--project", str(cli_project), "--no-build", "--"]
         build = run(cli + ["build", str(spec_path), str(plugin_path)], modforge)
+        # Check this BEFORE the assertions below, so a concurrent rebuild reads as its own cause
+        # rather than as a confusing content mismatch further down.
+        self.assertEqual(
+            built,
+            build_fingerprint(cli_output),
+            "the ModForge CLI binaries changed between `dotnet build` and `dotnet run --no-build`:"
+            " something else rebuilt the sibling checkout mid-test (another agent line, an IDE, a"
+            " watch task), so this ran a different binary than the one it built. Re-run with the"
+            " sibling repo quiet — do NOT read the assertions after this point as a pass.",
+        )
         self.assertIn("2 placement(s)", build.stdout)
         self.assertTrue(plugin_path.is_file())
 
