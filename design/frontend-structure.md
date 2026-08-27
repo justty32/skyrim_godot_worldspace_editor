@@ -23,6 +23,8 @@
 | `io_dialog.gd` | 高度 PNG export/import FileDialog |
 | `png16.gd` / `png16_codec.gd` | 16-bit PNG encode/decode + chunk/CRC |
 | `placement.gd` | `PlacedObject` 薄節點：metadata（base/instanceId/uniform_scale）+ box proxy 視覺；`set_model` 換成真實 glTF 模型（game-unit×METERS_PER_UNIT→顯示公尺，box 當 fallback）|
+| `skyrim_ref.gd` | `SkyrimRef`（static）：`"<master>:0xFORMID"` 這個文字型 ref 的**驗證與正規化**。`is_valid` 是安全邊界——ref 會直接變成 `res://texcache`／`res://modelcache` 底下的檔名、也會直接進 ModForge CLI 的 argv，所以擋掉空 master、`/`、`\`、`..`、非 hex FormID 與超過 24 bit 的值；`canonical` 讓 `0x18199` 與 `0x018199` 共用同一個快取鍵。原本 `tex_fetch.gd` 與 `model_fetch.gd` 各有一份逐字相同的私有複本且兩份都沒有測試 |
+| `repo_layout.gd` | `RepoLayout`（static）：**repo 之外**兩個工具與遊戲 Data dir 的位置解析——同層 repo 佈局推導預設值，`res://texconfig.json` 覆寫（見下）。回 `{data_dir, cli_project, mc_dir, mc_python}`。原本兩個 fetcher 各自推導，`tex_fetch.gd` 只解一部分，兩邊對「同一個 Data dir」的認定可能漂開；現在解一次 |
 | `model_fetch.gd` | `ModelFetch`：base ref → 真實模型的平色 proxy 節點。兩段：CLI `nifexport`（抽 model .nif）→ `nif2gltf --flat` 轉 glTF，快取 res://modelcache/，`GLTFDocument` runtime 載入。converter 優先走 `MODFORGE_NIF2GLTF_BIN` 黑盒 executable；未設才走同層 model-converter venv 的 `python -m nif2gltf` fallback。nonzero／缺 `.gltf`／缺 `.bin`／Godot 無法解析皆 fail closed 並清掉整對 partial/stale cache，讓下次 explicit fetch 可重試。主力機限定，抽不到→留 box |
 | `placement_tool.gd` | `PlacementTool`：placement 筆狀態 + 物件 list（place 吸地表 / restore / undo / clear）；rotation 三軸 `current_rot_x/y/z`|
 | `placement_ui.gd` | 可收合「OBJECT」大項（mode 切換、base/instance 欄、**rotation X/Y/Z**/scale、count、JSON I/O 按鈕）|

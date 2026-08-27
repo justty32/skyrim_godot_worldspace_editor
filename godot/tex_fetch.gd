@@ -12,62 +12,17 @@ var _cache: Dictionary = {}   # ref string -> Texture2D (or null if known-unreso
 var _data_dir: String = ""
 var _cli_project: String = ""
 
-# Candidate Skyrim SE Data dirs (first that exists wins). Override via res://texconfig.json.
-const _DATA_CANDIDATES := [
-	"/home/lorkhan/.local/share/Steam/steamapps/common/Skyrim Special Edition/Data",
-	"/home/lorkhan/.steam/steam/steamapps/common/Skyrim Special Edition/Data",
-]
-
 
 func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(CACHE_REL))
-	# Derive the CLI project from the sibling-repo layout: res:// = <projects>/godot-worldspace-editor/godot,
-	# with ModForge cloned alongside as <projects>/ModForge. Override via res://texconfig.json.
-	var proj := ProjectSettings.globalize_path("res://").rstrip("/")
-	var siblings := proj.get_base_dir().get_base_dir()  # …/godot → …/godot-worldspace-editor → <projects>
-	_cli_project = siblings.path_join("ModForge/src/ModForge.Cli")
-	for d in _DATA_CANDIDATES:
-		if DirAccess.dir_exists_absolute(d):
-			_data_dir = d
-			break
-	_load_overrides()
-
-
-func _load_overrides() -> void:
-	if not FileAccess.file_exists("res://texconfig.json"):
-		return
-	var txt := FileAccess.get_file_as_string("res://texconfig.json")
-	var cfg = JSON.parse_string(txt)
-	if cfg is Dictionary:
-		_data_dir = cfg.get("data_dir", _data_dir)
-		_cli_project = cfg.get("cli_project", _cli_project)
+	# Data dir + ModForge CLI location (sibling-repo defaults, texconfig.json overrides) — see RepoLayout.
+	var layout := RepoLayout.resolve()
+	_data_dir = layout["data_dir"]
+	_cli_project = layout["cli_project"]
 
 
 func available() -> bool:
 	return _data_dir != "" and DirAccess.dir_exists_absolute(_cli_project)
-
-
-# A ref is "<master>:0xFORMID". Reject anything with path separators / ".." so a hand-typed ref can't
-# escape the cache dir when turned into a filename, and so junk never reaches the CLI args.
-static func _valid_ref(ref: String) -> bool:
-	var i := ref.findn(":0x")
-	if i <= 0:
-		return false
-	var master := ref.substr(0, i)
-	var formid := ref.substr(i + 3)
-	if master == "" or master.contains("/") or master.contains("\\") or master.contains(".."):
-		return false
-	if formid.length() < 1 or formid.length() > 8:
-		return false
-	for j in range(formid.length()):
-		if "0123456789abcdefABCDEF".find(formid.substr(j, 1)) < 0:
-			return false
-	return formid.hex_to_int() <= 0xFFFFFF
-
-
-static func _canonical_ref(ref: String) -> String:
-	var i := ref.findn(":0x")
-	return ref.substr(0, i) + ":0x%06X" % ref.substr(i + 3).hex_to_int()
 
 
 # Return the Texture2D for an LTEX ref. Loads a cached PNG instantly; only shells out to the CLI
@@ -77,10 +32,10 @@ static func _canonical_ref(ref: String) -> String:
 func get_texture(ref: String, allow_fetch: bool = false) -> Texture2D:
 	if ref == "":
 		return null
-	if not _valid_ref(ref):   # user-entered text → keep it out of cache filenames / CLI args
+	if not SkyrimRef.is_valid(ref):   # user-entered text → keep it out of cache filenames / CLI args
 		push_warning("TexFetch: ignoring malformed ref '%s' (expected '<master>:0xFORMID')" % ref)
 		return null
-	ref = _canonical_ref(ref)
+	ref = SkyrimRef.canonical(ref)
 	if _cache.has(ref) and _cache[ref] != null:
 		return _cache[ref]
 

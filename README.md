@@ -95,6 +95,10 @@ python tests/test_placements_contract.py
 同層 `../ModForge` 存在時會再執行完整 consumer E2E（不同層可設 `MODFORGE_DIR`）；
 缺 Godot 時 unittest 會明示 skip，而不是拿手寫 JSON 冒充 exporter 輸出。
 
+`tests/test_skyrim_ref.py` 驗 `SkyrimRef`／`RepoLayout`：ref 的驗證與正規化規則直接決定
+快取檔名與 CLI argv，斷言跑在真正的 Godot runtime 上（`godot/tests/skyrim_ref_contract.gd`），
+不是拿 Python 重寫一份規則來對。
+
 `tests/test_gdscript_parses.py` 是重構護欄：把 `godot/` 每一支 `.gd` 都用
 `godot --headless --check-only --script` 掃一遍，parse 或型別解析失敗就紅。兩支契約測試只會
 執行自己用得到的那幾支腳本（PlacementsIo／TerrainCoords／ModelFetch 及其相依），像

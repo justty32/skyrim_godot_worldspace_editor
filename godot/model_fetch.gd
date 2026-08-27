@@ -18,38 +18,16 @@ var _converter_executable: String = ""
 var _converter_prefix: Array[String] = []
 var _converter_source: String = ""
 
-const _DATA_CANDIDATES := [
-	"/home/lorkhan/.local/share/Steam/steamapps/common/Skyrim Special Edition/Data",
-	"/home/lorkhan/.steam/steam/steamapps/common/Skyrim Special Edition/Data",
-]
-
-
 func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(CACHE_REL))
-	# Sibling-repo layout: res:// = <projects>/godot-worldspace-editor/godot, with ModForge and
-	# model-converter cloned alongside under <projects>/. Override via res://texconfig.json.
-	var proj := ProjectSettings.globalize_path("res://").rstrip("/")
-	var siblings := proj.get_base_dir().get_base_dir()
-	_cli_project = siblings.path_join("ModForge/src/ModForge.Cli")
-	_mc_dir = siblings.path_join("model-converter")
-	_mc_python = _default_python(_mc_dir)
-	for d in _DATA_CANDIDATES:
-		if DirAccess.dir_exists_absolute(d):
-			_data_dir = d
-			break
-	if FileAccess.file_exists("res://texconfig.json"):
-		var cfg = JSON.parse_string(FileAccess.get_file_as_string("res://texconfig.json"))
-		if cfg is Dictionary:
-			_data_dir = cfg.get("data_dir", _data_dir)
-			_cli_project = cfg.get("cli_project", _cli_project)
-			_mc_dir = cfg.get("mc_dir", _mc_dir)
-			_mc_python = cfg.get("mc_python", _default_python(_mc_dir))
+	# Data dir + ModForge CLI + model-converter locations (sibling-repo defaults, texconfig.json
+	# overrides) — see RepoLayout. Shared with TexFetch so both resolve the same Data dir.
+	var layout := RepoLayout.resolve()
+	_data_dir = layout["data_dir"]
+	_cli_project = layout["cli_project"]
+	_mc_dir = layout["mc_dir"]
+	_mc_python = layout["mc_python"]
 	_configure_converter()
-
-
-static func _default_python(mc_dir: String) -> String:
-	var relative := ".venv/Scripts/python.exe" if OS.get_name() == "Windows" else ".venv/bin/python"
-	return mc_dir.path_join(relative)
 
 
 # Invocation priority is part of the public model-converter protocol:
@@ -75,38 +53,15 @@ func available() -> bool:
 		and FileAccess.file_exists(_converter_executable)
 
 
-# A ref is "<master>:0xFORMID". Reject anything with path separators / ".." so a hand-typed ref can't
-# escape the cache dir when turned into a filename, and so junk never reaches the CLI args.
-static func _valid_ref(ref: String) -> bool:
-	var i := ref.findn(":0x")
-	if i <= 0:
-		return false
-	var master := ref.substr(0, i)
-	var formid := ref.substr(i + 3)
-	if master == "" or master.contains("/") or master.contains("\\") or master.contains(".."):
-		return false
-	if formid.length() < 1 or formid.length() > 8:
-		return false
-	for j in range(formid.length()):
-		if "0123456789abcdefABCDEF".find(formid.substr(j, 1)) < 0:
-			return false
-	return formid.hex_to_int() <= 0xFFFFFF
-
-
-static func _canonical_ref(ref: String) -> String:
-	var i := ref.findn(":0x")
-	return ref.substr(0, i) + ":0x%06X" % ref.substr(i + 3).hex_to_int()
-
-
 # A fresh instance of the model for `ref`, or null. allow_fetch=true permits the slow CLI+convert
 # for an uncached ref; false only loads an already-built glTF (keeps placing/startup snappy).
 func get_model(ref: String, allow_fetch: bool = false) -> Node3D:
 	if ref == "":
 		return null
-	if not _valid_ref(ref):   # user-entered text → keep it out of cache filenames / CLI args
+	if not SkyrimRef.is_valid(ref):   # user-entered text → keep it out of cache filenames / CLI args
 		push_warning("ModelFetch: ignoring malformed ref '%s' (expected '<master>:0xFORMID')" % ref)
 		return null
-	ref = _canonical_ref(ref)
+	ref = SkyrimRef.canonical(ref)
 	if not _cache.has(ref):
 		_cache[ref] = _build_template(ref, allow_fetch)
 	var tmpl: Node3D = _cache[ref]
