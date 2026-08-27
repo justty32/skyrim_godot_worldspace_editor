@@ -95,6 +95,13 @@ python tests/test_placements_contract.py
 同層 `../ModForge` 存在時會再執行完整 consumer E2E（不同層可設 `MODFORGE_DIR`）；
 缺 Godot 時 unittest 會明示 skip，而不是拿手寫 JSON 冒充 exporter 輸出。
 
+`tests/test_gdscript_parses.py` 是重構護欄：把 `godot/` 每一支 `.gd` 都用
+`godot --headless --check-only --script` 掃一遍，parse 或型別解析失敗就紅。兩支契約測試只會
+執行自己用得到的那幾支腳本（PlacementsIo／TerrainCoords／ModelFetch 及其相依），像
+`tex_fetch.gd` 這種只有 SplatTool 走得到的檔壞掉時兩支都還是綠的；headless **editor** 掃描
+雖然會印 `SCRIPT ERROR: Parse Error`，但 **exit code 仍是 0**，也擋不住。`--check-only`
+會回非零，且連帶解析外部 `class_name` 成員，所以引用到壞類別的檔會一起紅。
+
 `tests/test_model_fetch_contract.py` 另驗 model-converter → Godot 的真實 process boundary：
 synthetic NIF 經 production `nif2gltf` CLI 產生 `.gltf + .bin`，再由 production
 `ModelFetch._load_gltf()` 載入並檢查 mesh、primitive、頂點軸向與尺度；也覆蓋 missing
