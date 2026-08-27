@@ -17,6 +17,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -53,6 +54,26 @@ def run(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
             f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
         )
     return result
+
+
+def consumer_provenance(repo: Path) -> str:
+    """Which ModForge tree this E2E actually exercised: short HEAD, plus whether it was dirty.
+
+    The build fingerprint below only catches a rebuild DURING the test. It cannot tell that the
+    tree was already dirty when we built it — and then a green run says nothing about the commit
+    the parent repo has pinned, only about whatever was on disk. Report it rather than guess.
+    """
+    def git(*args: str) -> str | None:
+        result = subprocess.run(
+            ["git", "-C", str(repo), *args], text=True, capture_output=True
+        )
+        return result.stdout.strip() if result.returncode == 0 else None
+
+    head = git("rev-parse", "--short", "HEAD")
+    if head is None:
+        return f"{repo} (not a git checkout)"
+    dirty = git("status", "--porcelain")
+    return f"{repo.name}@{head}" + (" DIRTY" if dirty else " clean")
 
 
 def build_fingerprint(directory: Path) -> tuple[tuple[str, str], ...]:
@@ -169,6 +190,10 @@ class RuntimePlacementContractTests(unittest.TestCase):
         if modforge is None:
             self.skipTest("sibling ModForge checkout not found; set MODFORGE_DIR to run consumer E2E")
 
+        provenance = consumer_provenance(modforge)
+        # Printed on pass as well as failure: "green" here is a statement about THIS tree.
+        print(f"\n  [consumer E2E] built against {provenance}", file=sys.stderr)
+
         cli_project = modforge / "src" / "ModForge.Cli" / "ModForge.Cli.csproj"
         run(["dotnet", "build", str(cli_project), "--nologo"], modforge)
         cli_output = cli_project.parent / "bin" / "Debug"
@@ -209,7 +234,8 @@ class RuntimePlacementContractTests(unittest.TestCase):
             "the ModForge CLI binaries changed between `dotnet build` and `dotnet run --no-build`:"
             " something else rebuilt the sibling checkout mid-test (another agent line, an IDE, a"
             " watch task), so this ran a different binary than the one it built. Re-run with the"
-            " sibling repo quiet — do NOT read the assertions after this point as a pass.",
+            f" sibling repo quiet — do NOT read the assertions after this point as a pass."
+            f" (built against {provenance})",
         )
         self.assertIn("2 placement(s)", build.stdout)
         self.assertTrue(plugin_path.is_file())
