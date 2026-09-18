@@ -11,7 +11,7 @@
 | | |
 |---|---|
 | 目標 | 按下既有「Load real models」後，placement 顯示 **真實幾何 + 真實 diffuse**，離線可驗、不開 Skyrim |
-| 非目標（v1） | normal / specular / glow / environment map；alpha test 與雙面判定；材質參數（gloss、tint）；LE-format nif；動態 mesh（TREE 擺動）|
+| 非目標（v1） | normal / specular / glow / env map；alpha test 與雙面判定；材質參數；LE-format nif |
 | 非目標（永遠） | 把貼圖寫回 ModForge 契約——這是**前端預覽**，`placements.json` 不變、後端零改動 |
 
 `placements.json` 的形狀（`version` / `coordinate_system` / `placements[]`）**不動**。貼圖純粹是前端顯示層。
@@ -56,8 +56,11 @@ glTF 本身**維持 flat**（不塞 image、不改材質），貼圖走旁邊一
 
 正統的家是 `nif2gltf --textures`（[PROTOCOL.md:39](../../model-converter/PROTOCOL.md) 寫著「MVP 不實作」），
 但 `model-converter` 是別隊的 repo，**本線不寫**。因此 v1 由本 repo 自備薄 shim `tools/nif_textures.py`，
-**唯讀 import** sibling 的 `nif2gltf.nif_reader`。等 `--textures` 落地，shim 可直接拔掉——
-sidecar 契約刻意訂成兩邊都能產的形狀，就是為了這個換手。
+**唯讀 import** sibling 的 `nif2gltf.nif_reader`。sidecar 契約刻意訂成兩邊都能產的形狀，就是為了換手。
+**使用者 2026-09-18 09:55 裁示：接受先放本 repo。**
+
+- [ ] **待辦**：把 sidecar 產生器搬進 `nif2gltf --textures`，本 repo 的 `tools/nif_textures.py` 隨之拔掉。
+  出處＝本規格 `6dbc4ac` 與實作 `829fd46`（2026-09-18）；搬完 sidecar 契約不變，只換產生者。
 
 ## Godot 端怎麼載
 
@@ -71,9 +74,8 @@ sidecar 契約刻意訂成兩邊都能產的形狀，就是為了這個換手。
 | 材質 | `ShaderMaterial`（多層 alpha 混合）| `StandardMaterial3D.albedo_texture` |
 
 - 外部路徑一律走既有的 `RepoLayout.resolve()`，**不另外推導**（那正是 RepoLayout 存在的理由）。
-- **快取用雜湊子目錄，不用裸 basename**：`texpath` 輸出檔名是 `<basename>.png`，
-  vanilla 有大量同名不同目錄的 .dds（`stone01.dds` 之類），共用一層會互相覆蓋。
-  子目錄名＝完整貼圖路徑（小寫、`\`→`/`）的 SHA-1 前 16 碼。這是**消費端自保**，ModForge 不用改。
+- **快取用雜湊子目錄，不用裸 basename**：`texpath` 輸出是 `<basename>.png`，vanilla 大量同名不同目錄的
+  .dds 會互相覆蓋。子目錄名＝完整貼圖路徑（小寫、`\`→`/`）的 SHA-1 前 16 碼。**消費端自保**，ModForge 不用改。
 - 套用點：`PlacedObject.set_model()` 之後呼叫 `apply_textures(sidecar)`，
   逐 `MeshInstance3D` surface 設 `material_override`（`StandardMaterial3D`，`albedo_texture = tex`）。
   UV 已在 glTF 裡，不需任何幾何處理。
