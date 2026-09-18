@@ -18,6 +18,8 @@ var current_rot_z: float        = 0.0  # radians, Godot Z (roll / tilt)
 
 var _objects: Array[PlacedObject] = []
 
+signal textures_pending(count: int)
+
 signal changed  # count changed → UI label refresh
 
 
@@ -31,12 +33,25 @@ func configure(t: TerrainGrid, models: ModelFetch = null) -> void:
 func refresh_models(allow_fetch: bool = false) -> void:
 	if _models == null:
 		return
+	var sidecars: Dictionary = {}
+	var paths: Array[String] = []
 	for obj in _objects:
-		if obj.has_model():
-			continue
-		var m := _models.get_model(obj.skyrim_base, allow_fetch)
-		if m != null:
-			obj.set_model(m)
+		if not obj.has_model():
+			var m := _models.get_model(obj.skyrim_base, allow_fetch)
+			if m != null:
+				obj.set_model(m)
+		if not sidecars.has(obj.skyrim_base):
+			var sidecar := _models.get_sidecar(obj.skyrim_base, allow_fetch)
+			sidecars[obj.skyrim_base] = sidecar
+			for entry in sidecar.get("meshes", []):
+				paths.append(entry.get("diffuse", ""))
+	var remaining := 0
+	if allow_fetch:
+		remaining = _models.textures.fetch_paths(paths)
+	for obj in _objects:
+		obj.texture_fetch = _models.textures
+		obj.apply_textures(sidecars[obj.skyrim_base])
+	textures_pending.emit(remaining)
 
 
 # Click placement: keep clicked X/Z, snap Y onto the terrain surface.
@@ -70,6 +85,8 @@ func _spawn(base: String, inst_id: String, pos: Vector3, rot: Vector3, scale_v: 
 		var m := _models.get_model(base, false)
 		if m != null:
 			obj.set_model(m)
+			obj.texture_fetch = _models.textures
+			obj.apply_textures(_models.get_sidecar(base))
 
 
 func remove_last() -> void:

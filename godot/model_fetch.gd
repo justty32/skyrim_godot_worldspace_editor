@@ -9,6 +9,8 @@ extends Node
 
 const CACHE_REL := "res://modelcache"
 
+var textures: ObjTexFetch
+
 var _cache: Dictionary = {}   # ref -> Node3D template (duplicated per placement); null = unresolvable
 var _data_dir: String = ""
 var _cli_project: String = ""
@@ -19,6 +21,8 @@ var _converter_prefix: Array[String] = []
 var _converter_source: String = ""
 
 func _ready() -> void:
+	textures = ObjTexFetch.new()
+	add_child(textures)
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(CACHE_REL))
 	# Data dir + ModForge CLI + model-converter locations (sibling-repo defaults, texconfig.json
 	# overrides) — see RepoLayout. Shared with TexFetch so both resolve the same Data dir.
@@ -93,7 +97,10 @@ func _export_and_convert(ref: String, gltf_abs: String) -> bool:
 		push_warning("ModelFetch: nifexport %s failed: %s" % [ref, "\n".join(out)])
 		return false
 	# 2) convert .nif -> .gltf through the public executable hook, or the sibling fallback.
-	return _run_converter(nif_abs, gltf_abs)
+	if not _run_converter(nif_abs, gltf_abs):
+		return false
+	_generate_sidecar(nif_abs, gltf_abs.get_basename() + ".textures.json")
+	return true
 
 
 func _run_converter(nif_abs: String, gltf_abs: String) -> bool:
@@ -153,3 +160,26 @@ func _load_gltf(gltf_abs: String) -> Node3D:
 		return null
 	var scene := doc.generate_scene(state)
 	return scene if scene is Node3D else null
+
+
+func _generate_sidecar(nif_abs: String, sidecar_abs: String) -> void:
+	var output: Array = []
+	var shim := ProjectSettings.globalize_path("res://../tools/nif_textures.py")
+	if OS.execute(_mc_python, ["-B", shim, nif_abs, "--out", sidecar_abs,
+		"--mc-dir", _mc_dir], output, true) != 0:
+		print("ModelFetch: texture sidecar unavailable; keeping flat materials")
+
+
+func get_sidecar(ref: String, allow_fetch: bool = false) -> Dictionary:
+	if not SkyrimRef.is_valid(ref):
+		return {}
+	var stem := ProjectSettings.globalize_path(CACHE_REL).path_join(SkyrimRef.canonical(ref).replace(":", "_"))
+	var path := stem + ".textures.json"
+	# Upgrade existing geometry caches on the same explicit fetch action.
+	if not FileAccess.file_exists(path) and allow_fetch and FileAccess.file_exists(stem + ".nif"):
+		_generate_sidecar(stem + ".nif", path)
+	if not FileAccess.file_exists(path):
+		print("ModelFetch: no texture sidecar; keeping flat materials")
+		return {}
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
+	return parsed if parsed is Dictionary and parsed.get("contract") == "gltf-textures/1" else {}

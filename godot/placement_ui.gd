@@ -59,6 +59,9 @@ static func build(vbox: VBoxContainer, tool: PlacementTool,
 	var btn_mdl := Button.new(); btn_mdl.text = "Load real models (WYSIWYG)"
 	btn_mdl.pressed.connect(func(): tool.refresh_models(true)); vbox.add_child(btn_mdl)
 
+	var lbl_textures := _lbl(vbox, "")
+	tool.textures_pending.connect(func(n: int): lbl_textures.text = "還有 %d 張未載入" % n if n > 0 else "")
+
 	var btn_exp := Button.new(); btn_exp.text = "Save placements.json"
 	btn_exp.pressed.connect(on_export); vbox.add_child(btn_exp)
 	var btn_imp := Button.new(); btn_imp.text = "Load placements.json"

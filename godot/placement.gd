@@ -46,3 +46,41 @@ func set_model(model: Node3D) -> void:
 
 func has_model() -> bool:
 	return _model != null
+
+
+var texture_fetch: ObjTexFetch
+
+
+func apply_textures(sidecar: Dictionary) -> void:
+	if _model == null or texture_fetch == null or sidecar.get("contract") != "gltf-textures/1":
+		return
+	var instances: Array[MeshInstance3D] = []
+	_collect_meshes(_model, instances)
+	var entries: Array = sidecar.get("meshes", [])
+	for i in range(instances.size()):
+		var instance := instances[i]
+		var matched: Dictionary = {}
+		for entry in entries:
+			if entry.get("name", "") == str(instance.name):
+				matched = entry
+				break
+		if matched.is_empty():
+			for entry in entries:
+				if entry.get("index", -1) == i:
+					matched = entry
+					break
+		var tex := texture_fetch.get_texture(matched.get("diffuse", ""))
+		if tex == null or instance.mesh == null:
+			continue
+		var material := StandardMaterial3D.new()
+		material.albedo_texture = tex
+		instance.material_override = material
+		for surface in range(instance.mesh.get_surface_count()):
+			instance.set_surface_override_material(surface, material)
+
+
+static func _collect_meshes(node: Node, result: Array[MeshInstance3D]) -> void:
+	if node is MeshInstance3D:
+		result.append(node)
+	for child in node.get_children():
+		_collect_meshes(child, result)
