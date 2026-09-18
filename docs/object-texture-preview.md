@@ -2,11 +2,9 @@
 
 ← [README](../README.md)｜相關：[frontend-structure](../design/frontend-structure.md)（地形貼圖既有管線）｜[decisions](../design/decisions.md)
 
-**現況**：物件走 `nifexport` → `nif2gltf --flat` → `GLTFDocument` 的真實幾何，但材質是硬編灰色平色；
-「物件 diffuse/normal/spec 貼圖不在現行 converter 的 flat 契約內」（[README.md:140](../README.md)）。
-地形那條 LTEX→PNG 是**另一套**管線（`tex_fetch.gd` + `terrain_material.gd`），不能當物件規格。
-
-本規格補的就是這個缺口：**讓 placement 的真實 mesh 帶上真實 diffuse**。
+**現況**：物件走 `nifexport` → `nif2gltf --flat` → `GLTFDocument` 的真實幾何，但材質是硬編灰色平色
+（[README.md:140](../README.md)）。地形那條 LTEX→PNG 是**另一套**管線，不能當物件規格。
+本規格補這個缺口：**讓 placement 的真實 mesh 帶上真實 diffuse**。
 
 ## 目標與非目標
 
@@ -50,17 +48,16 @@ glTF 本身**維持 flat**（不塞 image、不改材質），貼圖走旁邊一
 }
 ```
 
-- `meshes[]` 的**順序與 glTF 的 mesh 順序一一對應**；`index` 是該序號，`name` 是 `Mesh.name`。
+- `meshes[]` **順序與 glTF 的 mesh 順序一一對應**（空幾何被 writer 略過，sidecar 也要略過）；`name` 是 `Mesh.name`。
 - `diffuse` 是 NIF 原樣宣告的反斜線路徑（不正規化、不小寫化）；解不到貼圖的 shape 寫 `""`。
 - 消費端**先用 `name` 配對，配不到才退回 `index`**。兩者都配不到就維持平色，不是錯誤。
 
 ### 誰產生這份 sidecar（我替使用者做的取捨）
 
-正統的家是 `nif2gltf --textures`（[PROTOCOL.md:39](../../model-converter/PROTOCOL.md) 寫著「MVP 不實作」）。
-但 `model-converter` 今天是 DSPort 線的資產，**本線不寫別隊的 repo**。
-因此 v1 由本 repo 自備一支薄 shim：`tools/nif_textures.py`，**唯讀 import** sibling 的 `nif2gltf.nif_reader`，
-產出上面那份 sidecar。等 `nif2gltf --textures` 正式落地，Godot 端把 shim 拔掉、改吃 converter 直接產的同一份檔即可
-（sidecar 契約刻意訂成兩邊都能產的形狀，就是為了這個換手）。
+正統的家是 `nif2gltf --textures`（[PROTOCOL.md:39](../../model-converter/PROTOCOL.md) 寫著「MVP 不實作」），
+但 `model-converter` 是別隊的 repo，**本線不寫**。因此 v1 由本 repo 自備薄 shim `tools/nif_textures.py`，
+**唯讀 import** sibling 的 `nif2gltf.nif_reader`。等 `--textures` 落地，shim 可直接拔掉——
+sidecar 契約刻意訂成兩邊都能產的形狀，就是為了這個換手。
 
 ## Godot 端怎麼載
 
@@ -82,8 +79,7 @@ glTF 本身**維持 flat**（不塞 image、不改材質），貼圖走旁邊一
   UV 已在 glTF 裡，不需任何幾何處理。
 - **觸發時機不新增開關**：沿用既有 `allow_fetch` 與「Load real models」按鈕。
   按鈕按一次 = 模型與貼圖一起帶出來。使用者不需要學新東西。
-- **離線降級不是錯誤**：`data_dir` 為空（沒裝遊戲的機器）、貼圖不在 BSA、sidecar 不存在——
-  全部安靜退回現有平色 proxy，只在 log 記一行。這條沿用 `RepoLayout.available()` 的既有語意。
+- **離線降級不是錯誤**：`data_dir` 為空、貼圖不在 BSA、sidecar 不存在——全部安靜退回平色 proxy，只記一行 log。
 
 ## 效能上限
 
