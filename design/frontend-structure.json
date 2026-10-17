@@ -1,0 +1,140 @@
+{
+ "contract": "wf-table/1",
+ "source": "frontend-structure.md",
+ "extracted": "2026-10-17",
+ "columns": [
+  "檔",
+  "職責"
+ ],
+ "link_columns": [],
+ "rows": [
+  {
+   "檔": "`main.gd`",
+   "職責": "根場景 `WorldspaceEditor`：常數與狀態、display 同步、`_add_cells`、export/import + 模式切換 callback；組裝委派 `editor_setup`，輸入/walk 委派下兩檔"
+  },
+  {
+   "檔": "`editor_setup.gd`",
+   "職責": "`EditorSetup`（static，吃 `WorldspaceEditor`）：`_ready` 的整段組裝——env／terrain／camera rig／cursor／格線／四個工具節點，以及由四個 UI 模組拼出的側欄。**順序是有意義的**（terrain 要先於 camera、工具要先於側欄拿它們的 callback），由 `tests/test_editor_boot.py` 釘住"
+  },
+  {
+   "檔": "`editor_input.gd`",
+   "職責": "`EditorInput`（static，吃 `WorldspaceEditor`）：LMB place/paint 派發、逐幀 cursor + 高度讀數 + paint tick（筆刷模式改由側欄按鈕選，原 R/L/F/S 熱鍵移除——S 會和 WASD 後退衝突）"
+  },
+  {
+   "檔": "`walk_mode.gd`",
+   "職責": "`WalkMode`（static）：第一人稱走地形預覽 enter/exit（生 PlayerController、暫停編輯輸入）"
+  },
+  {
+   "檔": "`terrain.gd`",
+   "職責": "高度資料 + 碰撞 body（`TerrainGrid`）；座標換算委派 `terrain_coords`"
+  },
+  {
+   "檔": "`terrain_coords.gd`",
+   "職責": "`TerrainCoords`（static）：Skyrim↔Godot↔display↔vertex 座標換算 + ray 取點。`get_hit_position` 只把螢幕座標換成射線，交給 `raycast_surface(t, from, dir)` 沿射線 **raymarch 打地形表面**（雙線性 `surface_y_at` 取高度、`_slab` 先夾 footprint 限步數）→ 抬起的地形會擋住游標，非固定中平面。拆成兩層是為了讓落點判定不必有 Camera3D／Viewport 也能離線驗（`tests/test_terrain_coords.py`）。射線**從側面**進入 footprint 時，第一個取樣點已在地表下代表它從地形側壁進去，回進入點；只有射線起點就在 footprint 內（＝相機真的在地下）才回 `Vector3.ZERO`"
+  },
+  {
+   "檔": "`terrain_mesh.gd`",
+   "職責": "從高度建 ArrayMesh（vertex/normal/uv + 高度漸層頂點色 + active splat 層 alpha overlay blend）"
+  },
+  {
+   "檔": "`terrain_brush.gd`",
+   "職責": "4 brush 模式（raise/lower/flatten/smooth）"
+  },
+  {
+   "檔": "`camera_rig.gd`",
+   "職責": "orbit 編輯相機（middle orbit / scroll zoom / right pan）；**WASD 在地面平面平移**（依相機朝向，`_process`，文字框聚焦時跳過）；**Shift+滾輪不縮放**（讓位給側欄捲動）"
+  },
+  {
+   "檔": "`shift_scroll.gd`",
+   "職責": "`ShiftScroll`（`ScrollContainer` 子類）：側欄**只在 Shift+滾輪時上下捲**，平常滾輪吞掉（保留給相機縮放）"
+  },
+  {
+   "檔": "`ui_section.gd`",
+   "職責": "`UiSection`（static）：可收合側欄大項——標題 toggle 鈕（▼/▶）+ 內容 VBox，點擊收合整段。三大項 Height/Object/Texture 各包一個"
+  },
+  {
+   "檔": "`grid_ui.gd`",
+   "職責": "`GridUi`：側欄 GRID 段——即時 cell/vert 維度 + 加/減東向欄(X+)、北向列(Y+) 的 cell（`terrain.resize_cells` 保 SW 原點）"
+  },
+  {
+   "檔": "`player_controller.gd`",
+   "職責": "Walk Mode 人形 `CharacterBody3D`（第一人稱 + WASD/跳/ESC）"
+  },
+  {
+   "檔": "`scene_builder.gd`",
+   "職責": "env / 編輯相機 / cursor / 格線 工廠"
+  },
+  {
+   "檔": "`world_ui.gd`",
+   "職責": "側欄（`ShiftScroll` + slider/spinbox）：頂層放 View/Walk/Info，其餘地形控制包進可收合「HEIGHT」大項"
+  },
+  {
+   "檔": "`io_dialog.gd`",
+   "職責": "高度 PNG export/import FileDialog"
+  },
+  {
+   "檔": "`png16.gd` / `png16_codec.gd`",
+   "職責": "16-bit PNG encode/decode + chunk/CRC"
+  },
+  {
+   "檔": "`placement.gd`",
+   "職責": "`PlacedObject` 薄節點：metadata（base/instanceId/uniform_scale）+ box proxy 視覺；`set_model` 換成真實 glTF 模型（game-unit×METERS_PER_UNIT→顯示公尺，box 當 fallback）"
+  },
+  {
+   "檔": "`skyrim_ref.gd`",
+   "職責": "`SkyrimRef`（static）：`\"<master>:0xFORMID\"` 這個文字型 ref 的**驗證與正規化**。`is_valid` 是安全邊界——ref 會直接變成 `res://texcache`／`res://modelcache` 底下的檔名、也會直接進 ModForge CLI 的 argv，所以擋掉空 master、`/`、`\\`、`..`、非 hex FormID 與超過 24 bit 的值；`canonical` 讓 `0x18199` 與 `0x018199` 共用同一個快取鍵。原本 `tex_fetch.gd` 與 `model_fetch.gd` 各有一份逐字相同的私有複本且兩份都沒有測試"
+  },
+  {
+   "檔": "`repo_layout.gd`",
+   "職責": "`RepoLayout`（static）：**repo 之外**兩個工具與遊戲 Data dir 的位置解析——同層 repo 佈局推導預設值，`res://texconfig.json` 覆寫（見下）。回 `{data_dir, cli_project, mc_dir, mc_python}`。原本兩個 fetcher 各自推導，`tex_fetch.gd` 只解一部分，兩邊對「同一個 Data dir」的認定可能漂開；現在解一次"
+  },
+  {
+   "檔": "`model_fetch.gd`",
+   "職責": "`ModelFetch`：base ref → 真實模型的平色 proxy 節點。兩段：CLI `nifexport`（抽 model .nif）→ `nif2gltf --flat` 轉 glTF，快取 res://modelcache/，`GLTFDocument` runtime 載入。converter 優先走 `MODFORGE_NIF2GLTF_BIN` 黑盒 executable；未設才走同層 model-converter venv 的 `python -m nif2gltf` fallback。nonzero／缺 `.gltf`／缺 `.bin`／Godot 無法解析皆 fail closed 並清掉整對 partial/stale cache，讓下次 explicit fetch 可重試。主力機限定，抽不到→留 box"
+  },
+  {
+   "檔": "`placement_tool.gd`",
+   "職責": "`PlacementTool`：placement 筆狀態 + 物件 list（place 吸地表 / restore / undo / clear）；rotation 三軸 `current_rot_x/y/z`"
+  },
+  {
+   "檔": "`placement_ui.gd`",
+   "職責": "可收合「OBJECT」大項（mode 切換、base/instance 欄、**rotation X/Y/Z**/scale、count、JSON I/O 按鈕）"
+  },
+  {
+   "檔": "`placements_io.gd`",
+   "職責": "`placements.json` 匯出/匯入（顯示 scale 除掉還原 canonical 公尺）"
+  },
+  {
+   "檔": "`tests/placements_contract.gd`",
+   "職責": "headless placement contract producer：建立真實 `PlacedObject` 並呼叫 production `PlacementsIo._serialize`；外層 `tests/test_placements_contract.py` 餵同層 ModForge build 並讀回 REFR"
+  },
+  {
+   "檔": "`tests/model_fetch_contract.gd`",
+   "職責": "headless model consumer probe（只在 temporary project copy 執行）；外層 `tests/test_model_fetch_contract.py` 以 model-converter synthetic NIF + production CLI 驗 `ModelFetch` executable priority、Godot mesh/primitive/vertices/軸向尺度與 missing-bin/bad-glTF/nonzero fail-closed"
+  },
+  {
+   "檔": "`splat_tool.gd`",
+   "職責": "`SplatTool`：紋理 alpha 筆 — 層模型（多層 LTEX ref + alpha 格）+ paint（active 層、radius/strength/erase falloff）+ base 貼圖；地形視覺委派 `splat_render`"
+  },
+  {
+   "檔": "`splat_render.gd`",
+   "職責": "`SplatRender`（static，吃 `SplatTool`）：層資料 → 地形視覺橋——WYSIWYG 真實貼圖混合（`TerrainMaterial`）或頂點色 tint fallback"
+  },
+  {
+   "檔": "`splat_ui.gd`",
+   "職責": "可收合「TEXTURE」大項（Splat Mode 切換、base 貼圖欄、層選擇+新增、LTEX ref〔Enter 抓圖〕、Paint/Erase、radius〔改 → 更新游標〕/strength、清層、Load real textures、splatmap PNG I/O）"
+  },
+  {
+   "檔": "`splatmap_io.gd`",
+   "職責": "splatmap 8-bit 灰階 PNG 匯出/匯入（Y-flip 頂=北，同 Png16/Heightmap 約定）+ 印出可貼進 spec 的 `textureLayers` 片段"
+  },
+  {
+   "檔": "`tex_fetch.gd`",
+   "職責": "`TexFetch`：LTEX ref → 真實貼圖。OS.execute 呼叫 ModForge CLI `texexport`（LTEX→diffuse .dds 從遊戲 BSA→PNG），快取 res://texcache/；CLI 路徑由**同層 repo 佈局**推導、Data dir 自動偵測（可 texconfig.json 覆寫，見下）。主力機限定，抽不到→退回 tint"
+  },
+  {
+   "檔": "`terrain_material.gd`",
+   "職責": "`TerrainMaterial`：地形 WYSIWYG ShaderMaterial — tiled base 貼圖 + 至多 4 層 alpha 混合（alpha 格→R-float 貼圖，UV 取樣）；無真實貼圖時 fallback 頂點高度漸層色"
+  }
+ ]
+}

@@ -2,7 +2,7 @@
 
 ← [idea #19](../ModForge/workflows/idea/ideas.md)｜設計文檔：[design/](design/README.md)（座標系／placements 格式／分塊拼大圖／決策與查證／前端結構）｜前端程式碼：[godot/](godot/)
 
-> **⚠️ 架構轉向（2026-06-24,未實作）**:擬棄「自製 app 殼」改吃 **Godot 原生編輯器**（.tscn 模板 + `@tool` 匯出腳本）。下述 app 形式的 UI/相機/輸入描述屆時會大改;地形格式/座標/匯出/對接 ModForge 不變。詳 [native-editor-pivot.md](design/native-editor-pivot.md)。
+> **架構轉向（2026-06-24 定方向，至 2026-10-17 仍未實作、亦無遷移 plan）**：曾擬棄「自製 app 殼」改吃 **Godot 原生編輯器**（.tscn 模板 + `@tool` 匯出腳本），理由與保留／砍掉清單見 [native-editor-pivot.md](design/native-editor-pivot.md)。現況：`godot/` 仍是以 `main.tscn` 執行的 app、全庫 0 支 `@tool` 腳本，2026-08-27 以後的重構與測試（`EditorSetup` 抽出、boot／placements／model fetch 契約測試）都投在現行 app 殼上。**下文描述的就是現行 app**；要不要真的轉、何時轉，待重新裁示，屆時只有 UI／相機／輸入層會變，地形格式／座標／匯出／對接 ModForge 不變。
 
 用 **Godot 4**（**自製 terrain**，不靠 HTerrain plugin）離線做地形編輯 → 匯出 → ModForge 生 LAND/REFR → 進遊戲微調。定位是 **Creation Kit 地形/場景編輯的替代前端**（CK 在 Wine/Proton 不穩、難腳本化）。
 

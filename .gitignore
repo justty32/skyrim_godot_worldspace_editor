@@ -1,3 +1,7 @@
 # Python test harness bytecode
 __pycache__/
 *.pyc
+# Godot caches (also covered by godot/.gitignore; listed here so the root file is the full picture)
+godot/.godot/
+godot/modelcache/
+godot/texcache/
