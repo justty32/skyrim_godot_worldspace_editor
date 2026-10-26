@@ -6,6 +6,7 @@
 
 > **⚠️ 架構轉向（2026-06-24,未實作）**:棄「自製 app 殼」改吃 **Godot 原生編輯器**——`.tscn` 場景模板 + `@tool` 匯出腳本,砍掉相機/輸入/UI/選取整層。下表多數 UI/輸入相關決策將被取代;地形/座標/格式/錨點決策仍有效。詳 [native-editor-pivot.md](native-editor-pivot.md)。
 
+<!-- wf-nav -->
 | 主題 | 決策 |
 |---|---|
 | 地形系統 | **Godot 4 自製 terrain**（ArrayMesh + 自寫高度/splat 筆刷 + 自寫 PNG codec）。原評估 HTerrain plugin，實作時棄用改自製 |
