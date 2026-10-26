@@ -36,7 +36,7 @@ land.VertexHeightMap = new LandscapeVertexHeightMap { Offset = cs.Height / 8f, .
 
 → **VHGT 編碼**：`Offset = Height_in_game_units / 8`，`actual_Z = Offset * 8`  
 → HeightMap 的 33×33 是每個頂點相對前一頂點的 **signed delta**，**每單位 = 8 game units**（delta=1 → +8 units；與 Offset 同尺度）。  
-✅ **已查證（Mutagen 0.53.1 原碼 + UESP + xEdit + 主力機 round-trip，2026-06-16）**：① delta 是 **signed int8**（−128~127）——Mutagen 寫 byte 原值不轉換，ModForge 須自做二補數；② **row-wise 累積**：第 0 欄沿列往北累積成各列基準、第 1–32 欄沿列內往東累積；③ Tamriel 20 格 decode→encode delta bytes 完全一致（596 tests，含 RequiresSkyrim）。詳見 [worldspace-editor-design.md](../../ModForge/workflows/specs/worldspace-editor-design.md)。  
+✅ **已查證（Mutagen 0.53.1 原碼 + UESP + xEdit + 主力機 round-trip，2026-06-16）**：① delta 是 **signed int8**（−128~127）——Mutagen 寫 byte 原值不轉換，ModForge 須自做二補數；② **row-wise 累積**：第 0 欄沿列往北累積成各列基準、第 1–32 欄沿列內往東累積；③ Tamriel 20 格 decode→encode delta bytes 完全一致（596 tests，含 RequiresSkyrim）。詳見 worldspace-editor-design.md。  
 ⚠️ **舊版這裡曾誤寫「每單位 = 1/8 game unit（+0.125）」——錯**（1/8 單步最大僅 ±16 units，做不出山）。正解 ×8。
 
 **來源：`Spec.Worldspace.cs` 行 59（developer 備註）**
