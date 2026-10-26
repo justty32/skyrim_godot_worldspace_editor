@@ -37,7 +37,9 @@ land.VertexHeightMap = new LandscapeVertexHeightMap { Offset = cs.Height / 8f, .
 → **VHGT 編碼**：`Offset = Height_in_game_units / 8`，`actual_Z = Offset * 8`  
 → HeightMap 的 33×33 是每個頂點相對前一頂點的 **signed delta**，**每單位 = 8 game units**（delta=1 → +8 units；與 Offset 同尺度）。  
 ✅ **已查證（Mutagen 0.53.1 原碼 + UESP + xEdit + 主力機 round-trip，2026-06-16）**：① delta 是 **signed int8**（−128~127）——Mutagen 寫 byte 原值不轉換，ModForge 須自做二補數；② **row-wise 累積**：第 0 欄沿列往北累積成各列基準、第 1–32 欄沿列內往東累積；③ Tamriel 20 格 decode→encode delta bytes 完全一致（596 tests，含 RequiresSkyrim）。詳見 worldspace-editor-design.md。  
-⚠️ **舊版這裡曾誤寫「每單位 = 1/8 game unit（+0.125）」——錯**（1/8 單步最大僅 ±16 units，做不出山）。正解 ×8。
+⚠️ **不可把倍率寫成「每單位 = 1/8 game unit（+0.125）」**（1/8 單步最大僅 ±16 units，做不出山）。正解 ×8。二補數範例：存 −10 = byte 246。
+
+VNML 法線以 128 units 頂點間距計算，signed-byte 的 up 向量為 `(0,0,127)`；編碼驗證結論見 [world](../../ModForge/workflows/feature-dev/landed/world.md)。
 
 **來源：`Spec.Worldspace.cs` 行 59（developer 備註）**
 
@@ -73,7 +75,7 @@ terrain size (per cell) = 4096 × 0.014286 ≈ 58.5m
 heightmap export        = 16-bit grayscale PNG（splatmap = 8-bit grayscale）
 ```
 
-**高度映射**：不需絕對精度。Godot 出 16-bit PNG（0~65535），ModForge 讀檔時自訂 `skyrim_height = png_value / 65535 × max_height_units`，只要在 spec/文件記錄換算係數即可。`max_height_units` 取多少待定（與不確定 #4 PNG 精度連動）。
+**高度映射**：不需絕對精度。Godot 出 16-bit PNG（0~65535），ModForge 讀檔時自訂 `skyrim_height = png_value / 65535 × max_height_units`，只要在 spec/文件記錄換算係數即可。`max_height_units` 取多少待定（與下節 PNG 精度問題連動）。
 
 ---
 
@@ -81,8 +83,4 @@ heightmap export        = 16-bit grayscale PNG（splatmap = 8-bit grayscale）
 
 1. **game units → 公尺的精確比例**：codebase 只有 "~280m" 的備註（`Spec.Worldspace.cs:59`），不是精確定義。社群共識（1 unit = 1.4286cm，player 高度 128 units ≈ 1.8m）更可信，但應查 UESP wiki 或 Bethesda 官方資料確認。
 
-2. ~~**VHGT delta 是 signed 還是 unsigned**~~ ✅ **已解（2026-06-16）**：Mutagen 寫 byte 原值不轉換，引擎讀成 **signed int8** → ModForge 自做二補數（存 −10 = byte 246）。
-
-3. ~~**VHGT delta 是 per-row 重置還是全域累積**~~ ✅ **已解（2026-06-16）**：**row-wise 累積**——第 0 欄沿列往北累積成各列基準、第 1–32 欄沿列內往東累積；offset 與每 delta 都 ×8 game units。✅ **主力機 round-trip 已驗（2026-06-16）**：Tamriel 20 格 decode→encode delta bytes 完全一致。
-
-4. **PNG heightmap 精度**：16-bit grayscale PNG 可表示 65536 個高度級別，對應 Skyrim VHGT offset 的 signed float 範圍是否足夠？需查 Skyrim 實際地形高度範圍（Tamriel 最高峰 Throat of the World 約多少 game units）。
+2. **PNG heightmap 精度**：16-bit grayscale PNG 可表示 65536 個高度級別，對應 Skyrim VHGT offset 的 signed float 範圍是否足夠？需查 Skyrim 實際地形高度範圍（Tamriel 最高峰 Throat of the World 約多少 game units）。

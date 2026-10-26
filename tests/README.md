@@ -33,8 +33,8 @@ python tests/test_placements_contract.py
 
 `tests/test_terrain_mesh.py` 驗高度筆刷與增量網格更新——heightmap 是這個編輯器的主要產物
 （ModForge 拿它生 LAND/VHGT），而每一個筆刷 tick 都走 `TerrainBrush.apply` ＋
-`TerrainMeshBuilder.update_region`。增量路徑存在的唯一理由就是它應該跟整份重建等價，
-而這句話先前只寫在註解裡沒人驗。五種筆劃（RAISE 中央／RAISE 角落／LOWER／FLATTEN／SMOOTH）
+`TerrainMeshBuilder.update_region`。增量路徑存在的唯一理由就是它應該跟整份重建等價。
+五種筆劃（RAISE 中央／RAISE 角落／LOWER／FLATTEN／SMOOTH）
 各比對一次增量與 `build_full` 的**已上傳 surface**（不是 `_m_*` 來源陣列——那樣會放過
 「算完忘了 upload」）；另驗 smoothstep falloff 在半徑處歸零、筆刷不越界、以及長筆劃會在
 `max_height` 飽和而不是溢出高度範圍。
@@ -44,7 +44,7 @@ python tests/test_placements_contract.py
 哨兵值。斷言跑在真正的 Godot runtime 上（`godot/tests/terrain_coords_contract.gd`），不需要
 Camera3D：`get_hit_position` 只把螢幕座標換成一條射線，行進、footprint 裁切與各種 miss 都在
 `raycast_surface` 裡。含一條回歸：**射線從側面低角度進入抬高地形**時，第一個取樣點是
-footprint 進入點而不是相機位置，舊碼把它當成「相機在地下」而回 ZERO。
+footprint 進入點而不是相機位置，不能把它當成「相機在地下」而回 ZERO。
 
 `tests/test_splat_contract.py` 驗 splatmap PNG（ModForge `textureLayers[].splatmap` 的生產者契約）
 與兩個只在筆刷按住時才出現的側欄行為。PNG 的 **north-on-top 列序**是拿 Python 自己寫的 8-bit

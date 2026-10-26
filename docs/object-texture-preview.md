@@ -2,9 +2,7 @@
 
 ← [README](../README.md)｜相關：[frontend-structure](../design/frontend-structure.md)（地形貼圖既有管線）｜[decisions](../design/decisions.md)
 
-**現況**：物件走 `nifexport` → `nif2gltf --flat` → `GLTFDocument` 的真實幾何，但材質是硬編灰色平色
-（[README.md:140](../README.md)）。地形那條 LTEX→PNG 是**另一套**管線，不能當物件規格。
-本規格補這個缺口：**讓 placement 的真實 mesh 帶上真實 diffuse**。
+物件走 `nifexport` → `nif2gltf --flat` → `GLTFDocument` 載入真實幾何，另以 sidecar 套用 diffuse；現行能力見 [README](../README.md#物件與紋理預覽)。地形 LTEX→PNG 是另一套管線。本規格定義 placement 的 **真實幾何 + 真實 diffuse** 契約。
 
 ## 目標與非目標
 
@@ -18,25 +16,22 @@
 
 ## 資料從哪來（三段，全部已存在）
 
-已用真實 vanilla 素材離線實證（2026-09-18，`Skyrim.esm:0x10C0E3` Barrel02Static）：
+三段管線以 `Skyrim.esm:0x10C0E3` Barrel02Static 為例：
 
 1. **base → .nif**：`nifexport <dataDir> <outDir> <master:0xFORMID>` 從 mesh BSA 抽出模型。
-   已在用（`godot/model_fetch.gd`）。實測 → `Clutter\Barrel02.nif`。
+   呼叫端是 `godot/model_fetch.gd`；輸出 → `Clutter\Barrel02.nif`。
 2. **.nif → diffuse 路徑**：NIF 的 `BSLightingShaderProperty` → `BSShaderTextureSet` → `diffuse`。
-   `nif2gltf` 的 parser **早就解出來了**並寫進 `Mesh.texture`（[nif_reader.py:144](../../model-converter/nif2gltf/nif_reader.py)、
-   [geometry.py:35](../../model-converter/nif2gltf/geometry.py)），只是 `gltf_writer` 丟掉不用。
-   實測 → `textures\clutter\Barrel02.dds`，且 **UV 已經有寫出**（`TEXCOORD_0`，`gltf_writer.py:115`）——這點關鍵，代表幾何端零改動。
+   `nif2gltf` 的 parser 解出後寫進 `Mesh.texture`（[nif_reader.py:144](../../model-converter/nif2gltf/nif_reader.py)、
+   [geometry.py:35](../../model-converter/nif2gltf/geometry.py)），`gltf_writer` 的 flat 輸出不內嵌貼圖。
+   路徑 → `textures\clutter\Barrel02.dds`，且 **UV 已寫出**（`TEXCOORD_0`，`gltf_writer.py:115`）——這點關鍵，代表幾何端零改動。
 3. **貼圖路徑 → PNG**：`texpath <dataDir> <outDir> <texPath>[,…]` 從 texture BSA 抽 .dds 轉 PNG。
-   **這支 CLI 已經存在**（[TexExport.cs:60](../../ModForge/src/ModForge.Cli/Commands/TexExport.cs)），它的註解原本就寫著
-   「Feeds the Godot object pipeline」，但 Godot 端從來沒呼叫過。實測 → 512×1024 PNG，742 KB。
+   CLI 入口見 [TexExport.cs:60](../../ModForge/src/ModForge.Cli/Commands/TexExport.cs)，註解「Feeds the Godot object pipeline」。此例輸出 512×1024 PNG，742 KB。
 
-**結論：三段都現成，缺的只有第 2 段的輸出通道與第 3 段的呼叫端。ModForge 零改動。**
+**第 2 段的 sidecar 產生器與第 3 段的呼叫端在本 repo；ModForge 零改動。**
 
 ## 契約擴充：`<stem>.textures.json` sidecar
 
-glTF 本身**維持 flat**（不塞 image、不改材質），貼圖走旁邊一份 sidecar。理由：不動 `--flat` 契約就不會
-踩到既有 glTF 結構測試，也不必在 Python 端做 base64 embed。`gltf_writer.py:139` **已經有清理
-`<stem>.textures.json` 的邏輯**——這個檔名是上游預留的掛勾，只是從沒有人寫過它。
+glTF 本身**維持 flat**（不塞 image、不改材質），貼圖走旁邊一份 sidecar；不動 `--flat` 契約、不在 Python 端做 base64 embed。`gltf_writer.py:139` 有清理 `<stem>.textures.json` 的邏輯。
 
 ```json
 {
@@ -52,19 +47,17 @@ glTF 本身**維持 flat**（不塞 image、不改材質），貼圖走旁邊一
 - `diffuse` 是 NIF 原樣宣告的反斜線路徑（不正規化、不小寫化）；解不到貼圖的 shape 寫 `""`。
 - 消費端**先用 `name` 配對，配不到才退回 `index`**。兩者都配不到就維持平色，不是錯誤。
 
-### 誰產生這份 sidecar（我替使用者做的取捨）
+### 誰產生這份 sidecar
 
-正統的家是 `nif2gltf --textures`（[PROTOCOL.md:39](../../model-converter/PROTOCOL.md) 寫著「MVP 不實作」），
-但 `model-converter` 是別隊的 repo，**本線不寫**。因此 v1 由本 repo 自備薄 shim `tools/nif_textures.py`，
-**唯讀 import** sibling 的 `nif2gltf.nif_reader`。sidecar 契約刻意訂成兩邊都能產的形狀，就是為了換手。
+v1 由本 repo 的薄 shim `tools/nif_textures.py` 產生，**唯讀 import** sibling 的 `nif2gltf.nif_reader`；`model-converter` 是別隊的 repo，本線不寫。目標入口是 `nif2gltf --textures`（[PROTOCOL.md:39](../../model-converter/PROTOCOL.md) 寫著「MVP 不實作」），sidecar 契約容許兩邊產生。
 **使用者 2026-09-18 09:55 裁示：接受先放本 repo。**
 
 - [ ] **待辦**：把 sidecar 產生器搬進 `nif2gltf --textures`，本 repo 的 `tools/nif_textures.py` 隨之拔掉。
-  出處＝本規格 `6dbc4ac` 與實作 `829fd46`（2026-09-18）；搬完 sidecar 契約不變，只換產生者。
+  搬完 sidecar 契約不變，只換產生者。
 
 ## Godot 端怎麼載
 
-沿用地形那套的形狀（`tex_fetch.gd` 是範本），新增 `godot/obj_tex_fetch.gd`：
+物件載入由 `godot/obj_tex_fetch.gd` 負責，與地形 `tex_fetch.gd` 的對照：
 
 | 項目 | 地形（既有） | 物件（本規格） |
 |---|---|---|
@@ -99,7 +92,7 @@ v1 **不做**非同步載入：沿用地形貼圖「按鈕按下去會卡一下�
 
 ## 驗證（不開 Skyrim）
 
-比照 `tests/test_model_fetch_contract.py` 的 process-boundary 寫法，新增 `tests/test_object_texture_contract.py`：
+`tests/test_object_texture_contract.py` 的 process-boundary 驗證：
 
 1. **sidecar 產生器**：synthetic NIF（帶已知 diffuse 路徑）→ `tools/nif_textures.py` → 驗 sidecar 的 `contract`／`meshes[].name`／`diffuse` 逐欄相符。
 2. **Godot 端套用**：headless GDScript probe 載入 flat glTF + 一張合成 PNG，

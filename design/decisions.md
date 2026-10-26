@@ -9,7 +9,7 @@
 <!-- wf-nav -->
 | 主題 | 決策 |
 |---|---|
-| 地形系統 | **Godot 4 自製 terrain**（ArrayMesh + 自寫高度/splat 筆刷 + 自寫 PNG codec）。原評估 HTerrain plugin，實作時棄用改自製 |
+| 地形系統 | **Godot 4 自製 terrain**（ArrayMesh + 自寫高度/splat 筆刷 + 自寫 PNG codec） |
 | Heightmap 格式 | 16-bit grayscale PNG，spec 寫路徑 |
 | Heightmap 切割 | 單張大 PNG，ModForge 切；N 格寬 → PNG 寬 `N×32+1` px，相鄰格共用邊緣欄 → seam 零誤差 |
 | 物件 metadata | 薄 script + `@export var skyrim_base`（base form ref）+ `@export var instance_id`（選填） |
@@ -30,4 +30,4 @@
 ## 已查證
 
 - ✅ **VHGT 編碼**：signed int8 delta、row-wise 累積、每 delta = 8 game units（Mutagen 0.53.1 + UESP + xEdit，2026-06-16）——詳見 worldspace-editor-design.md
-- ✅ **NIF → glTF**：fo76utils / NifSkope（Linux+Windows 雙平台）；`nif2gltf` Rust CLI 不存在（Gemini 捏造）——見 [`gemini-research/worldspace-editor/nif-gltf-conversion.md`](../../ModForge/sub_projs/gemini-research/worldspace-editor/nif-gltf-conversion.md)
+- ✅ **NIF → glTF**：fo76utils / NifSkope（Linux+Windows 雙平台）；`nif2gltf` Rust CLI 不存在——見 [`gemini-research/worldspace-editor/nif-gltf-conversion.md`](../../ModForge/sub_projs/gemini-research/worldspace-editor/nif-gltf-conversion.md)

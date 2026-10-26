@@ -2,11 +2,11 @@
 
 ← [idea #19](../ModForge/workflows/idea/ideas.md)｜設計文檔：[design/](design/README.md)（座標系／placements 格式／分塊拼大圖／決策與查證／前端結構）｜前端程式碼：[godot/](godot/)
 
-> **架構轉向（2026-06-24 定方向，至 2026-10-17 仍未實作、亦無遷移 plan）**：曾擬棄「自製 app 殼」改吃 **Godot 原生編輯器**（.tscn 模板 + `@tool` 匯出腳本），理由與保留／砍掉清單見 [native-editor-pivot.md](design/native-editor-pivot.md)。現況：`godot/` 仍是以 `main.tscn` 執行的 app、全庫 0 支 `@tool` 腳本，2026-08-27 以後的重構與測試（`EditorSetup` 抽出、boot／placements／model fetch 契約測試）都投在現行 app 殼上。**下文描述的就是現行 app**；要不要真的轉、何時轉，待重新裁示，屆時只有 UI／相機／輸入層會變，地形格式／座標／匯出／對接 ModForge 不變。
+> **架構轉向尚未實作、亦無遷移 plan**：轉用 **Godot 原生編輯器**（.tscn 模板 + `@tool` 匯出腳本）的方向見 [native-editor-pivot.md](design/native-editor-pivot.md)。現況仍是以 `main.tscn` 執行的「自製 app 殼」、全庫 0 支 `@tool` 腳本。**下文描述現行 app**；要不要真的轉、何時轉，待重新裁示。轉向只涉及 UI／相機／輸入層，地形格式／座標／匯出／對接 ModForge 不變。
 
 用 **Godot 4**（**自製 terrain**，不靠 HTerrain plugin）離線做地形編輯 → 匯出 → ModForge 生 LAND/REFR → 進遊戲微調。定位是 **Creation Kit 地形/場景編輯的替代前端**（CK 在 Wine/Proton 不穩、難腳本化）。
 
-**獨立 repo**（2026-08-02 自 ModForge `sub_projs/godot-worldspace-editor` 抽出，未帶舊 commit 歷史）。與 ModForge 的關係不變：**靠協議對接、不整合**——本 repo 只負責輸出 heightmap PNG／splatmap PNG／`placements.json`，生成端全在 ModForge。
+**獨立 repo**，與 ModForge **靠協議對接、不整合**——本 repo 只負責輸出 heightmap PNG／splatmap PNG／`placements.json`，生成端全在 ModForge。
 
 > **佈局前提**：本文中 `../ModForge/…`、`../model-converter/…` 這類連結，前提是三個 repo **同層 clone 在同一個父目錄下**（本機為 `~/repo/moddings/skyrim/projects/`）。執行期的 CLI／venv 路徑也照這個假設自動推導，可用 `godot/texconfig.json` 覆寫（見 [design/frontend-structure.md](design/frontend-structure.md)）。
 
@@ -22,7 +22,7 @@
 
 ## MVP scope（已達成並超出）
 
-原始 MVP＝**單格 PNG → LAND → COW 進入、地形有起伏**。現況已遠超：**多格 heightmap**（VHGT/VNML/seam）、**物件擺放 → REFR**、**地形紋理**（單層 baseTexture + 多層 splatmap → BTXT/VTXT）整鏈離線完成，2026-06-18 已 Godot GUI 實跑＋in-game 確認；剩 VTXT position row/col 序與物件 rotation 的實機目視（見 [WAIT_USER](../ModForge/wait_todo/worldspace-editor.md)）。
+支援 **多格 heightmap**（VHGT/VNML/seam）、**物件擺放 → REFR**、**地形紋理**（單層 baseTexture + 多層 splatmap → BTXT/VTXT）整鏈離線完成，2026-06-18 已 Godot GUI 實跑＋in-game 確認；剩 VTXT position row/col 序與物件 rotation 的實機目視（見 [WAIT_USER](../ModForge/wait_todo/worldspace-editor.md)）。
 
 ---
 
@@ -65,6 +65,8 @@ Godot（自製 terrain）               ModForge
 | splatmap PNG | spec `baseTexture`（BTXT）/ `textureLayers[].splatmap`（`Splatmap.cs`→`Vtxt.cs` ATXT/VTXT） | ✅ in-game 確認；position 序待目視 |
 | `placements.json` | spec `godotPlacements` → `GodotPlacements.cs`（`godot4_y_up`→Skyrim 換算）→ 合流 `placements[]` | ✅ |
 
+BTXT base 層與稀疏 ATXT/VTXT alpha 層都按每格四象限輸出；後端契約由 `WorldspaceBaseTextureTests`／`WorldspaceSplatmapTests` 覆蓋。
+
 平坦地形（`WorldspaceCellSpec.Height` → VHGT 全格同高）、SubCells block tree、flat-quad navmesh、水位預設皆已有；**不需動**：水位 / REGN / navmesh（暫夠）。
 
 ---
@@ -77,30 +79,20 @@ VHGT 編碼（signed int8 delta、每 delta=8 units）、NIF→glTF 工具選型
 
 ## 前端結構（`godot/`）
 
-`godot/` 各 `.gd`（~100 行/檔）的逐檔職責、顯示縮放與高度著色規則 → 見 [frontend-structure.md](design/frontend-structure.md)。
+現行 app 支援 display scale、Walk Mode 與高度著色。`godot/` 各 `.gd`（~100 行/檔）的逐檔職責、顯示縮放與高度著色規則 → 見 [frontend-structure.md](design/frontend-structure.md)。
 
 ## 離線 placement 契約測試
 
 執行環境、各契約的覆蓋範圍與 consumer E2E 建置副作用 → [tests/README.md](tests/README.md)。
 
+## 物件與紋理預覽
+
+Place Mode 支援 base ref／instanceId／rotationY／scale、吸地表的 hash 配色 box proxy、place／undo／clear 與 `placements.json` 匯出／匯入。匯出時還原 display scale，與後端 `GodotPlacements.cs` 欄位及座標換算一致；Place Mode 與 Splat Mode 互斥。
+
+按「Load real models」→ CLI `nifexport` 抽 NIF → `nif2gltf --flat` 轉 glTF → `model_fetch.gd` 以 `GLTFDocument` 載入、替換 box。diffuse 由 [sidecar 管線](docs/object-texture-preview.md) 補上；normal／spec 不在 flat 契約內。
+
+地形 WYSIWYG 走獨立的 `texexport`（LTEX → BSA diffuse DDS → PNG）、`tex_fetch.gd`（快取 `res://texcache/`）及 `terrain_material.gd`（ShaderMaterial，無貼圖 fallback 頂點色）。base + 至多 4 層 per-vertex alpha 混合；預覽 alpha 與匯出 splatmap 共用資料，PNG Y-flip／網格約定與後端一致。Splat Mode 提供多層 alpha 筆、active 層即時上色、8-bit 灰階 PNG 及可貼入 spec 的片段。
+
 ## Open
 
-- **小尾巴（不擋使用）**：物件 glTF 是 flat proxy，diffuse 預覽由 sidecar 另外套上（2026-09-18 `829fd46`，見 [object-texture-preview](docs/object-texture-preview.md)）；LE-format 真檔 nif 未驗（vanilla 多 SSE）；VTXT position row/col 序待最終目視（見 [WAIT_USER](../ModForge/wait_todo/worldspace-editor.md)）。
-
-~~box proxy → 真實 glTF 幾何~~ ✅ **GUI 確認 2026-06-18**：placement 顯示真實 vanilla 模型幾何（非方塊）。按 placement UI「Load real models」→ CLI `nifexport` 抽 model NIF → `nif2gltf --flat` 轉為平色 glTF proxy → `model_fetch.gd` 以 `GLTFDocument` 載入 + `placement.set_model` 換 box。物件 diffuse/normal/spec 貼圖不在現行 converter 的 flat 契約內（2026-09-18 起 diffuse 改由 sidecar 補上）；地形 LTEX 貼圖仍由獨立 `texexport` pipeline 提供。
-
-~~地形紋理 WYSIWYG（Godot 直接顯示真實草/泥土貼圖）~~ ✅ **in-game 確認 2026-06-18**：splat 筆刷下顯示真實 vanilla ground 貼圖（非平色 tint），base + 至多 4 層 per-vertex alpha 混合。CLI `texexport`（LTEX→diffuse .dds 從遊戲 BSA→PNG）+ `tex_fetch.gd`（OS.execute 呼叫、快取 res://texcache/）+ `terrain_material.gd`（ShaderMaterial，無貼圖 fallback 頂點色）。預覽 alpha 格＝匯出 splatmap 同份資料，所見＝VTXT 烘出。
-
-> 主力機驗收項（Godot GUI 實跑、xEdit byte-verify）列在 [WAIT_USER](../ModForge/WAIT_USER.md)，不擋離線開發。
-
-~~紋理 B 路線（單層 BTXT + 多層 VTXT splatmap + 前端 splat 筆刷）~~ ✅ 2026-06-17（離線實作；2026-06-18 Godot GUI＋in-game 已確認，僅 VTXT position 序待目視）：① spec `worldspace.baseTexture` → 每格四象限 BTXT base 層（測 `WorldspaceBaseTextureTests`）；② spec `worldspace.textureLayers`（LTEX + 灰階 splatmap PNG）→ 每格四象限稀疏 ATXT+VTXT alpha 層（`Splatmap.cs`/`Vtxt.cs`，測 `WorldspaceSplatmapTests`）；③ Godot 前端 Splat Mode 多層 alpha 筆 + active 層即時上色 + 8-bit 灰階 splatmap PNG 匯出（含可貼 spec 片段）：`splat_tool.gd`/`splat_ui.gd`/`splatmap_io.gd` + `terrain`/`terrain_mesh` overlay + `main.gd` 路由（與 Place Mode 互斥）。PNG Y-flip/網格約定前後端一致。
-
-~~物件擺放（Godot 前端）~~ ✅ 2026-06-17（離線實作；2026-06-18 Godot GUI 已確認）：Place Mode 切換 + placement 筆（base ref / instanceId / rotationY / scale）+ box proxy（hash 配色，Y 吸地表）+ `placements.json` 匯出/匯入。檔：`placement.gd`（PlacedObject 薄節點）/ `placement_tool.gd`（list + place/undo/clear）/ `placements_io.gd`（JSON I/O，顯示 scale 除掉還原 canonical 公尺）/ `placement_ui.gd`（側欄 PLACEMENT 段）；`terrain.gd` 加 `world_to_canonical_meters`/`canonical_meters_to_world`/`surface_display_y`；`main.gd` 接 Place Mode 輸入路由。**離線已核對**前端輸出欄位 + 座標換算與後端 `GodotPlacements.cs` 逐欄一致（round-trip 自洽）。
-
-~~godotPlacements 讀取（後端）~~ ✅ 2026-06-16（`GodotPlacements.cs` + test：解 JSON、godot4_y_up→Skyrim 座標換算、rad→deg、合流 `placements[]`，已接進 `Generator.Build.Worldspace.cs:198`）
-~~Godot 前端骨架~~ ✅ 2026-06-16（自製 terrain，不靠 HTerrain）
-~~前端拆檔 + display scale + Walk Mode + 高度著色~~ ✅ 2026-06-16
-~~Godot 專案開啟測試~~ ✅ 2026-06-16（使用者主力機驗證：terrain/筆刷/PNG 匯出可用）
-~~VNML 重算（後端）~~ ✅ 2026-06-16（`Vnml.cs` + `SampleCellExtended`，35×35 中心差分）
-~~待主力機收尾：Tamriel VHGT 反解比對~~ ✅ 2026-06-16（20 格 delta 完全一致）
-~~VNML axis/編碼驗證~~ ✅ 2026-06-16（對 vanilla Tamriel VNML 逐 byte 比對，修了 3 bug：轉置 / StepUnits 8→128 / signed-byte up=(0,0,127)；見 [landed/world.md](../ModForge/workflows/feature-dev/landed/world.md)）
+LE-format 真檔 NIF 未驗（vanilla 多 SSE）；VTXT position row/col 序與物件 rotation 待實機目視，見 [worldspace 待驗項](../ModForge/wait_todo/worldspace-editor.md)。Godot GUI／xEdit byte-verify 驗收入口見 [WAIT_USER](../ModForge/WAIT_USER.md)，不擋離線開發。
